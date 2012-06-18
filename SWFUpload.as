@@ -1573,10 +1573,10 @@ package {
 				current_file_item.file_status = FileItem.FILE_STATUS_QUEUED;
 				this.file_queue.unshift(current_file_item);
 			}
-
-			current_file_item = null;
-			this.current_files[current_file_item.id] = 0;
 			
+			this.current_files[current_file_item.id] = 0;
+			current_file_item = null;
+
 			this.Debug("Event: uploadComplete : Upload cycle complete.");
 			ExternalCall.UploadComplete(this.uploadComplete_Callback, jsFileObj);
 		}
