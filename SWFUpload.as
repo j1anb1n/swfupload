@@ -191,7 +191,6 @@ package {
 			this.stage.align = StageAlign.TOP_LEFT;
 			this.stage.scaleMode = StageScaleMode.NO_SCALE;
 			this.stage.addEventListener(Event.RESIZE, function (e:Event):void {
-				this.Debug("SWFUpload: Event.RESIZE");
 				self.HandleStageResize(e);
 			});
 
@@ -264,7 +263,6 @@ package {
 			this.sizeTimer.addEventListener(TimerEvent.TIMER, function ():void {
 				//self.Debug("Stage:" + self.stage.stageWidth + " by " + self.stage.stageHeight);
 				if (self.stage.stageWidth > 0 || self.stage.stageHeight > 0) {
-					this.Debug("sizeTimer stage resize");
 					self.HandleStageResize(null);
 					self.sizeTimer.stop();
 					self.sizeTimer.removeEventListener(TimerEvent.TIMER, arguments.callee);
@@ -272,7 +270,6 @@ package {
 				}
 			} );
 			this.sizeTimer.start();
-			this.Debug("SWFUpload: sizeTimer start");
 			// Get the movie name
 			this.movieName = decodeURIComponent(root.loaderInfo.parameters.movieName);
 
@@ -305,7 +302,6 @@ package {
 			this.mouseOut_Callback              = "SWFUpload.instances[\"" + this.movieName + "\"].mouseOut";
 			this.mouseOver_Callback             = "SWFUpload.instances[\"" + this.movieName + "\"].mouseOver";
 			this.mouseClick_Callback            = "SWFUpload.instances[\"" + this.movieName + "\"].mouseClick";
-			this.Debug("SWFUpload: setup callbacks");
 			// Get the Flash Vars
 			this.uploadURL = decodeURIComponent(root.loaderInfo.parameters.uploadURL);
 			this.filePostName = decodeURIComponent(root.loaderInfo.parameters.filePostName);
@@ -313,7 +309,6 @@ package {
 			this.fileTypesDescription = decodeURIComponent(root.loaderInfo.parameters.fileTypesDescription) + " (" + this.fileTypes + ")";
 			this.loadPostParams(decodeURIComponent(root.loaderInfo.parameters.params));
 
-			this.Debug("SWFUpload: got Flash Vars");
 			if (!this.filePostName) {
 				this.filePostName = "Filedata";
 			}
@@ -325,7 +320,6 @@ package {
 			}
 			
 			this.LoadFileExensions(this.fileTypes);
-			this.Debug("SWFUpload: LoadFileExensions");
 			try {
 				this.debugEnabled = decodeURIComponent(root.loaderInfo.parameters.debugEnabled) == "true" ? true : false;
 			} catch (ex:Object) {
@@ -1672,7 +1666,7 @@ package {
 			return request;
 		}
 		
-		private function Debug(msg:String):void {
+		public function Debug(msg:String):void {
 			try {
 				if (this.debugEnabled) {
 					var lines:Array = msg.split("\n");
