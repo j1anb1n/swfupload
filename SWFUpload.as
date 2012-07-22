@@ -152,6 +152,7 @@ package {
 		private var ERROR_CODE_FILE_CANCELLED:Number				= -280;
 		private var ERROR_CODE_UPLOAD_STOPPED:Number				= -290;
 		private var ERROR_CODE_RESIZE:Number						= -300;
+		private var ERROR_CODE_TIMEOUT_EROR:Number					= -310;
 
 		
 		// Button Actions
@@ -594,7 +595,23 @@ package {
 		private function ServerData_Handler(event:DataEvent, current_file_item:FileItem):void {
 			this.UploadSuccess(current_file_item, event.data);
 		}
-		
+		private function Timeout_Handler(event:TimerEvent, current_file_item:FileItem):void {
+			if (this.assumeSuccessTimer[current_file_item.id]) {
+					this.assumeSuccessTimer[current_file_item.id].stop();
+					this.assumeSuccessTimer[current_file_item.id] = null;
+			}
+
+			// Only trigger an IO Error event if we haven't already done an HTTP error
+			if (current_file_item.file_status != FileItem.FILE_STATUS_ERROR) {
+				this.upload_errors++;
+				current_file_item.file_status = FileItem.FILE_STATUS_ERROR;
+
+				this.Debug("Event: uploadError : IO Error : File ID: " + current_file_item.id + ". TIMEOUT Error");
+				ExternalCall.UploadError(this.uploadError_Callback, this.ERROR_CODE_TIMEOUT_EROR, current_file_item.ToJavaScriptObject(), '');
+			}
+			
+			this.UploadComplete(true, current_file_item);
+		}
 		private function UploadSuccess(file:FileItem, serverData:String, responseReceived:Boolean = true):void {
 			if (this.serverDataTimer[file.id]) {
 				this.serverDataTimer[file.id].stop();
@@ -1352,7 +1369,7 @@ package {
 					current_file_item.upload_type = FileItem.UPLOAD_TYPE_NORMAL;
 				}
 				
-				if (resizeSettings != null && current_file_item.file_reference.size < 16777215 && current_file_item.file_reference.size > 300000) {
+				if (resizeSettings != null && current_file_item.file_reference.size < 10240000 && current_file_item.file_reference.size > 300000) {
 					this.Debug("StartUpload(): Uploading Type: Resized Image.");
 					current_file_item.file_status = FileItem.FILE_STATUS_IN_RESIZE;
 					this.PrepareResizedImage(resizeSettings, current_file_item);
@@ -1438,12 +1455,15 @@ package {
 				current_file_item.file_status = FileItem.FILE_STATUS_ERROR;
 
 				this.Debug("Event: uploadError : Resize Error : File ID: " + current_file_item.id + ". Error: " + event.text);
-				//ExternalCall.UploadError(this.uploadError_Callback, this.ERROR_CODE_RESIZE, current_file_item.ToJavaScriptObject(), "Error generating resized image. " + event.text);
 			}
 
-			//this.UploadComplete(true, current_file_item);
-			ExternalCall.UploadStart(this.uploadStart_Callback, current_file_item.ToJavaScriptObject());
-			//this._StartUpload(current_file_item);
+			if (current_file_item.file_reference.data) {
+				current_file_item.uploader = new MultipartURLLoader(current_file_item.file_reference.data, current_file_item.file_reference.name);
+			} else {
+				current_file_item.uploader = null;
+			}
+			
+			this._StartUpload(current_file_item);
 		}
 		private function PrepareResizedProgress(event:ProgressEvent, current_file_item:FileItem):void {
 			this.Debug("PrepareResizedImageProgress: " + event.bytesLoaded + '/' + event.bytesTotal);
@@ -1453,17 +1473,25 @@ package {
 		private function PrepareNormalFile(current_file_item:FileItem):void {
 			this.Debug('PrepareNormalFile(): current_file_item.index = ' + this.FindIndexInFileQueue(current_file_item.id));
 			var t:SWFUpload = this;
-			
-			current_file_item.eventFuncs.PrepareNormalFileCompleteHandler = function (event:Event):void {
-				t.PrepareNormalFileCompleteHandler(event, current_file_item);
-			};
-			current_file_item.eventFuncs.PrepareNormalFileErrorHandler = function (event:IOErrorEvent):void {
-				t.IOError_Handler(event, current_file_item);
-			};
+			if (current_file_item.uploader == null) {
+				current_file_item.eventFuncs.PrepareNormalFileCompleteHandler = function (event:Event):void {
+					t.PrepareNormalFileCompleteHandler(event, current_file_item);
+				};
+				current_file_item.eventFuncs.PrepareNormalFileErrorHandler = function (event:IOErrorEvent):void {
+					t.IOError_Handler(event, current_file_item);
+				};
 
-			current_file_item.file_reference.addEventListener(Event.COMPLETE, current_file_item.eventFuncs.PrepareNormalFileCompleteHandler);
-			current_file_item.file_reference.addEventListener(IOErrorEvent.IO_ERROR, current_file_item.eventFuncs.PrepareNormalFileErrorHandler);
-			current_file_item.file_reference.load();
+				current_file_item.file_reference.addEventListener(Event.COMPLETE, current_file_item.eventFuncs.PrepareNormalFileCompleteHandler);
+				current_file_item.file_reference.addEventListener(IOErrorEvent.IO_ERROR, current_file_item.eventFuncs.PrepareNormalFileErrorHandler);
+				try {
+					current_file_item.file_reference.load();
+				} catch (ex:Error) {
+					
+				}
+			} else {
+				ExternalCall.UploadStart(this.uploadStart_Callback, current_file_item.ToJavaScriptObject());
+			}
+			
 		}
 		
 		private function PrepareNormalFileCompleteHandler(event:Event, current_file_item:FileItem):void {
@@ -1790,6 +1818,9 @@ package {
 				fileItem.eventFuncs.ServerData_Handler = function (event:DataEvent):void {
 					t.ServerData_Handler(event, fileItem);
 				};
+				fileItem.eventFuncs.Timeout_Handler = function (event:TimerEvent):void {
+					t.Timeout_Handler(event, fileItem);
+				};
 				
 				item.addEventListener(Event.OPEN, fileItem.eventFuncs.Open_Handler);
 				item.addEventListener(ProgressEvent.PROGRESS, fileItem.eventFuncs.FileProgress_Handler);
@@ -1798,6 +1829,7 @@ package {
 				item.addEventListener(HTTPStatusEvent.HTTP_STATUS, fileItem.eventFuncs.HTTPError_Handler);
 				item.addEventListener(Event.COMPLETE, fileItem.eventFuncs.Complete_Handler);
 				item.addEventListener(DataEvent.UPLOAD_COMPLETE_DATA, fileItem.eventFuncs.ServerData_Handler);
+				item.addEventListener(TimerEvent.TIMER, fileItem.eventFuncs.Timeout_Handler);
 			}
 		}
 
@@ -1811,6 +1843,7 @@ package {
 				item.removeEventListener(HTTPStatusEvent.HTTP_STATUS, fileItem.eventFuncs.HTTPError_Handler);
 				item.removeEventListener(Event.COMPLETE, fileItem.eventFuncs.Complete_Handler);
 				item.removeEventListener(DataEvent.UPLOAD_COMPLETE_DATA, fileItem.eventFuncs.ServerData_Handler);
+				item.removeEventListener(TimerEvent.TIMER, fileItem.eventFuncs.Timeout_Handler);
 			}
 		}
 
