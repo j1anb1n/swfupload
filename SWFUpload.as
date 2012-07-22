@@ -1359,8 +1359,7 @@ package {
 				} else {
 					this.Debug("StartUpload(): Start upload.");
 					current_file_item.file_status = FileItem.FILE_STATUS_IN_PROGRESS;
-					this.PrepareNoramlFile(current_file_item);
-					//ExternalCall.UploadStart(this.uploadStart_Callback, current_file_item.ToJavaScriptObject());
+					this.PrepareNormalFile(current_file_item);
 				}
 			}
 			// Otherwise we've would have looped through all the FileItems. This means the queue 0is empty)
@@ -1403,7 +1402,7 @@ package {
 				//ExternalCall.ResizeComplate(this.uploadStart_Callback, current_file_item.ToJavaScriptObject());
 				this.Debug('PrepareResizedImage(): error in encoding image, upload in normal mode');
 				this._StartUpload(current_file_item);
-			}			
+			}
 		}
 		
 		private function PrepareResizedImageCompleteHandler(event:ImageResizerEvent, current_file_item:FileItem):void {
@@ -1423,7 +1422,7 @@ package {
 				this.Debug('PrepareResizedImageCompleteHandler(): file_index:' + this.FindIndexInFileQueue(current_file_item.id));
 				current_file_item.upload_type = FileItem.UPLOAD_TYPE_RESIZE;
 				ExternalCall.UploadResizeComplete(this.uploadResizeComplete_Callback, current_file_item.ToJavaScriptObject());
-				this._StartUpload(current_file_item);
+				ExternalCall.UploadStart(this.uploadStart_Callback, current_file_item.ToJavaScriptObject());
 			}
 		}		
 		private function PrepareResizedImageErrorHandler(event:ErrorEvent, current_file_item:FileItem):void {
@@ -1452,12 +1451,27 @@ package {
 		}
 		
 		private function PrepareNormalFile(current_file_item:FileItem):void {
+			this.Debug('PrepareNormalFile(): current_file_item.index = ' + this.FindIndexInFileQueue(current_file_item.id));
+			var t:SWFUpload = this;
+			
+			current_file_item.eventFuncs.PrepareNormalFileCompleteHandler = function (event:Event):void {
+				t.PrepareNormalFileCompleteHandler(event, current_file_item);
+			};
+			current_file_item.eventFuncs.PrepareNormalFileErrorHandler = function (event:IOErrorEvent):void {
+				t.IOError_Handler(event, current_file_item);
+			};
+
+			var loader:Loader = new Loader();
+			loader.contentLoaderInfo.addEventListener(Event.COMPLETE, this.current_file_item.eventFuncs.PrepareNormalFileCompleteHandler);
+			loader.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, current_file_item.eventFuncs.PrepareNormalFileErrorHandler);
+			loader.loadBytes(current_file_item.file_reference.data);
 		}
 		
-		private function PrepareNormalFileLoaderComplete(event:Event.COMPLETE, current_file_item:FileItem):void {
-			current_file_item.uploader = new MultipartURLLoader(event.data, current_file_item.file_reference.name);
-			this._StartUpload(current_file_item);
+		private function PrepareNormalFileCompleteHandler(event:Event, current_file_item:FileItem):void {
+			current_file_item.uploader = new MultipartURLLoader(current_file_item.file_reference.data, current_file_item.file_reference.name);
+			ExternalCall.UploadStart(this.uploadStart_Callback, current_file_item.ToJavaScriptObject());
 		}
+		
 		// This starts the upload when the user returns TRUE from the uploadStart event.  Rather than just have the value returned from
 		// the function we do a return function call so we can use the setTimeout work-around for Flash/JS circular calls.
 		private function ReturnUploadStart(start_upload:Boolean, file_id:String):void {
