@@ -515,12 +515,8 @@ package {
 		}
 
 		private function Open_Handler(event:Event, current_file_item:FileItem):void {
-			var uploadSize:Number = 0;
-			if (current_file_item.upload_type == FileItem.UPLOAD_TYPE_NORMAL) {
-				uploadSize = current_file_item.file_reference.size;
-			} else {
-				uploadSize = current_file_item.resized_uploader.size;
-			}
+			var uploadSize:Number = current_file_item.uploader.size;
+			
 			this.Debug("Event: uploadProgress (OPEN): File ID: " + current_file_item.id + " Bytes: 0. Total: " + uploadSize);
 			current_file_item.finalUploadProgress = false;
 			ExternalCall.UploadProgress(this.uploadProgress_Callback, current_file_item.ToJavaScriptObject(), 0, uploadSize);
@@ -613,19 +609,14 @@ package {
 			if (!file.finalUploadProgress) {
 				file.finalUploadProgress = true;
 				
-				var uploadSize:Number = 0;
-				if (file.upload_type == FileItem.UPLOAD_TYPE_NORMAL) {
-					uploadSize = file.file_reference.size;
-				} else {
-					uploadSize = file.resized_uploader.size;
-				}
+				var uploadSize:Number = file.uploader.size;
 				this.Debug("Event: uploadProgress (simulated 100%): File ID: " + file.id + ". Bytes: " + uploadSize + ". Total: " + uploadSize);
 				ExternalCall.UploadProgress(this.uploadProgress_Callback, file.ToJavaScriptObject(), uploadSize, uploadSize);
 			}
 			
 			this.successful_uploads++;
 			file.file_status = FileItem.FILE_STATUS_SUCCESS;
-
+			var e:EventDispatcher = file.GetUploader();
 			this.Debug("Event: uploadSuccess: File ID: " + file.id + " Response Received: " + responseReceived.toString() + " Data: " + serverData);
 			ExternalCall.UploadSuccess(this.uploadSuccess_Callback, file.ToJavaScriptObject(), serverData, responseReceived);
 
@@ -847,17 +838,11 @@ package {
 			if (current_file_item != null) {
 				this.Debug('_StopUpload(): stop uploading' + current_file_item.id);
 				// Cancel the upload and re-queue the FileItem
-				if (current_file_item.upload_type === FileItem.UPLOAD_TYPE_NORMAL) {
-					current_file_item.file_reference.cancel();
-				} else {
-					if (current_file_item.resized_uploader != null) {
-						current_file_item.resized_uploader.cancel();
-						current_file_item.resized_uploader = null;
-					} else {
-						this.Debug('_StopUpload(): resized_upload is null');
-					}
+				if (current_file_item.uploader != null) {
+					current_file_item.uploader.cancel();
+					current_file_item.uploader = null;
 				}
-
+				
 				// Remove the event handlers
 				this.removeEventListeners(current_file_item);
 				this.Debug('_StopUpload(): remove eventlisteners');
@@ -902,19 +887,14 @@ package {
 					this.upload_cancelled++;
 					
 					// Cancel the file (just for good measure) and make the callback
-					if (file_item.upload_type === FileItem.UPLOAD_TYPE_NORMAL) {
-						this.Debug('CancelUpload(): file.upload_type is UPLOAD_TYPE_NORMAL');
-						file_item.file_reference.cancel();
+					if (file_item.uploader != null) {
+					    this.Debug("CancelUpload(): Cancelled file while resizing " + file_item.id + ".");
+						file_item.uploader.cancel();
+						file_item.uploader = null;
 					} else {
-						this.Debug('CancelUpload(): file.upload_type: ' + file_item.upload_type);
-						if (file_item.resized_uploader != null) {
-						    this.Debug("CancelUpload(): Cancelled file while resizing " + file_item.id + ".");
-							file_item.resized_uploader.cancel();
-							file_item.resized_uploader = null;
-						} else {
-							this.Debug("CancelUpload(): resized_uploader is null " + file_item.id + ".");
-						}
+						this.Debug("CancelUpload(): resized_uploader is null " + file_item.id + ".");
 					}
+					
 					this.removeEventListeners(file_item);
 					file_item.upload_type = FileItem.UPLOAD_TYPE_NORMAL;
 
@@ -969,13 +949,9 @@ package {
 					
 
 					// Cancel the file (just for good measure) and make the callback
-					if (file_item.upload_type === FileItem.UPLOAD_TYPE_NORMAL) {
-						file_item.file_reference.cancel();
-					} else {
-						if (file_item.resized_uploader != null) {
-							file_item.resized_uploader.cancel();
-							file_item.resized_uploader = null;
-						}
+					if (file_item.uploader != null) {
+						file_item.uploader.cancel();
+						file_item.uploader = null;
 					}
 
 					this.removeEventListeners(file_item);
@@ -1334,7 +1310,8 @@ package {
 			File processing and handling functions
 		*************************************************************** */
 		
-		private function StartUpload(file_id:String = '', resizeSettings:Object = null):void {
+		private function StartUpload(file_id:String = '', guid:String = '', resizeSettings:Object = null):void {
+			this.Debug('start upload' + guid);
 			var current_file_item:FileItem = null;
 			
 			var file_index:Number = this.FindIndexInFileQueue(file_id);
@@ -1346,6 +1323,7 @@ package {
 				this.Debug("Event: uploadError : File ID not found in queue: " + file_id);
 				ExternalCall.UploadError(this.uploadError_Callback, this.ERROR_CODE_SPECIFIED_FILE_ID_NOT_FOUND, null, "File ID not found in the queue.");
 			}
+			current_file_item.AddParam('_guid', guid);
 			this._StartUpload(current_file_item, resizeSettings);
 		}
 		
@@ -1381,7 +1359,8 @@ package {
 				} else {
 					this.Debug("StartUpload(): Start upload.");
 					current_file_item.file_status = FileItem.FILE_STATUS_IN_PROGRESS;
-					ExternalCall.UploadStart(this.uploadStart_Callback, current_file_item.ToJavaScriptObject());
+					this.PrepareNoramlFile(current_file_item);
+					//ExternalCall.UploadStart(this.uploadStart_Callback, current_file_item.ToJavaScriptObject());
 				}
 			}
 			// Otherwise we've would have looped through all the FileItems. This means the queue 0is empty)
@@ -1439,13 +1418,12 @@ package {
 				var newFileName:String = current_file_item.file_reference.name.lastIndexOf(".") > 1 ?
 					(current_file_item.file_reference.name.substring(0, current_file_item.file_reference.name.lastIndexOf(".")) + extension) :
 					(current_file_item.file_reference.name + extension);
-				current_file_item.resized_uploader = new MultipartURLLoader(event.data, newFileName);
+				current_file_item.uploader = new MultipartURLLoader(event.data, newFileName);
 				this.Debug('PrepareResizedImageCompleteHandler(): I dont upload automatic');
 				this.Debug('PrepareResizedImageCompleteHandler(): file_index:' + this.FindIndexInFileQueue(current_file_item.id));
 				current_file_item.upload_type = FileItem.UPLOAD_TYPE_RESIZE;
 				ExternalCall.UploadResizeComplete(this.uploadResizeComplete_Callback, current_file_item.ToJavaScriptObject());
 				this._StartUpload(current_file_item);
-				//ExternalCall.UploadStart(this.uploadStart_Callback, current_file_item.ToJavaScriptObject());
 			}
 		}		
 		private function PrepareResizedImageErrorHandler(event:ErrorEvent, current_file_item:FileItem):void {
@@ -1471,6 +1449,14 @@ package {
 		private function PrepareResizedProgress(event:ProgressEvent, current_file_item:FileItem):void {
 			this.Debug("PrepareResizedImageProgress: " + event.bytesLoaded + '/' + event.bytesTotal);
 			ExternalCall.ResizeProgress(this.resizeProgress_Callback, current_file_item.ToJavaScriptObject(), event.bytesLoaded, event.bytesTotal);
+		}
+		
+		private function PrepareNormalFile(current_file_item:FileItem):void {
+		}
+		
+		private function PrepareNormalFileLoaderComplete(event:Event.COMPLETE, current_file_item:FileItem):void {
+			current_file_item.uploader = new MultipartURLLoader(event.data, current_file_item.file_reference.name);
+			this._StartUpload(current_file_item);
 		}
 		// This starts the upload when the user returns TRUE from the uploadStart event.  Rather than just have the value returned from
 		// the function we do a return function call so we can use the setTimeout work-around for Flash/JS circular calls.
@@ -1505,13 +1491,7 @@ package {
 					} else {
 						current_file_item.file_status = FileItem.FILE_STATUS_IN_PROGRESS;
 						
-						if (current_file_item.upload_type === FileItem.UPLOAD_TYPE_NORMAL) {
-							this.Debug("ReturnUploadStart(): File accepted by startUpload event and readied for standard upload.  Starting upload to " + request.url + " for File ID: " + current_file_item.id);
-							current_file_item.file_reference.upload(request, this.filePostName, false);
-						} else {
-							this.Debug("ReturnUploadStart(): File accepted by startUpload event and readied for resized upload.  Starting upload to " + request.url + " for File ID: " + current_file_item.id);
-							current_file_item.resized_uploader.upload(request, this.filePostName);
-						}
+						current_file_item.uploader.upload(request, this.filePostName);
 					}
 				} catch (ex:Error) {
 					this.Debug("ReturnUploadStart: Exception occurred: " + message);
@@ -1532,9 +1512,9 @@ package {
 
 				// Re-queue the FileItem
 				current_file_item.file_status = FileItem.FILE_STATUS_QUEUED;
-				if (current_file_item.resized_uploader != null) {
-					current_file_item.resized_uploader.dispose();
-					current_file_item.resized_uploader = null;
+				if (current_file_item.uploader != null) {
+					current_file_item.uploader.dispose();
+					current_file_item.uploader = null;
 				}
 				js_object = current_file_item.ToJavaScriptObject();
 				this.file_queue.unshift(current_file_item);
@@ -1554,10 +1534,10 @@ package {
 			var jsFileObj:Object = current_file_item.ToJavaScriptObject();
 			
 			this.removeEventListeners(current_file_item);
-			if (current_file_item.resized_uploader != null) {
-				current_file_item.file_reference.data.clear();
-				current_file_item.resized_uploader.dispose();
-				current_file_item.resized_uploader = null;
+			if (current_file_item.uploader != null) {
+				current_file_item.file_reference = null;
+				current_file_item.uploader.dispose();
+				current_file_item.uploader = null;
 			}
 
 			if (!eligible_for_requeue || this.requeueOnError == false) {
@@ -1667,6 +1647,7 @@ package {
 		}
 		
 		public function Debug(msg:String):void {
+			trace(msg);
 			try {
 				if (this.debugEnabled) {
 					var lines:Array = msg.split("\n");
