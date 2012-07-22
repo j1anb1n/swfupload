@@ -21,6 +21,9 @@
 	import flash.utils.Endian;
 	import flash.utils.setTimeout;
 	import flash.utils.clearInterval;
+	import flash.utils.Timer;
+	import flash.events.TimerEvent;
+
 
 	/**
 	 * Multipart URL Loader
@@ -133,8 +136,17 @@
 			this.addListener();
 
 			dispatchEvent(new Event(Event.OPEN, false, false));
-
+			var timer:Timer = new Timer(10000);
+			var t:MultipartURLLoader = this;
+			timer.addEventListener(TimerEvent.TIMER, function(event:TimerEvent):void {
+				dispatchEvent(event);
+				t.destroy();
+			});
+			_loader.addEventListener(Event.COMPLETE, function(event:Event):void {
+				timer.stop();
+			});
 			try {
+				timer.start();
 				_loader.load(urlRequest);
 			} catch (ex:Error) {
 				trace('IOError in dosend');
@@ -296,6 +308,10 @@
 			this._httpStatus = event.status;
 		}
 
+		private function onProgress( event:ProgressEvent):void {
+			trace('onProgress');
+			dispatchEvent(event);
+		}
 		private function addListener(): void
 		{
 			trace('addListener');
@@ -304,6 +320,7 @@
 				this._loader.addEventListener( IOErrorEvent.IO_ERROR, this.onIOError, false, 0, false );
 				this._loader.addEventListener( HTTPStatusEvent.HTTP_STATUS, this.onHTTPStatus, false, 0, false );
 				this._loader.addEventListener( SecurityErrorEvent.SECURITY_ERROR, this.onSecurityError, false, 0, false );
+				this._loader.addEventListener( ProgressEvent.PROGRESS, this.onProgress, false, 0, false);
 			}
 		}
 
@@ -314,6 +331,7 @@
 				this._loader.removeEventListener( IOErrorEvent.IO_ERROR, this.onIOError );
 				this._loader.removeEventListener( HTTPStatusEvent.HTTP_STATUS, this.onHTTPStatus );
 				this._loader.removeEventListener( SecurityErrorEvent.SECURITY_ERROR, this.onSecurityError );
+				this._loader.removeEventListener( ProgressEvent.PROGRESS, this.onProgress);
 			}
 		}
 
