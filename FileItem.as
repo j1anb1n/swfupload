@@ -1,6 +1,11 @@
 package {
+	import flash.events.Event;
 	import flash.events.EventDispatcher;
 	import flash.net.FileReference;
+	import flash.display.Loader;
+	import flash.display.LoaderInfo;
+	import flash.utils.ByteArray;
+	import flash.events.*;
 
 	internal class FileItem
 	{
@@ -8,7 +13,7 @@ package {
 
 		private var postObject:Object;
 		public var file_reference:FileReference;
-		public var resized_uploader:MultipartURLLoader;
+		public var uploader:MultipartURLLoader;
 		public var id:String;
 		public var index:Number = -1;
 		public var file_status:int = 0;
@@ -32,7 +37,7 @@ package {
 		{
 			this.postObject = {};
 			this.file_reference = file_reference;
-			this.resized_uploader = null;
+			this.uploader = null;
 			this.id = control_id + "_" + (FileItem.file_id_sequence++);
 			this.file_status = FileItem.FILE_STATUS_NEW;
 			this.index = index;
@@ -56,12 +61,12 @@ package {
 			} catch (ex:Error) {
 				this.file_status = FileItem.FILE_STATUS_ERROR;
 			}
-			
+						
 			this.js_object.filestatus = this.file_status;
 		}
 		
 		public function GetUploader():EventDispatcher {
-			return upload_type === FileItem.UPLOAD_TYPE_NORMAL ? this.file_reference : this.resized_uploader;
+			return this.uploader;
 		}
 		
 		public function AddParam(name:String, value:String):void {
