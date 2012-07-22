@@ -63,11 +63,12 @@ package
 		public function ResizeImage():void {
 			try {
 				var timer:Timer = new Timer(1000);
+				var t:ImageResizer = this;
 				timer.addEventListener(TimerEvent.TIMER, function ():void {
 					timer.stop();
 					dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, 'error in loading file'));
-					this.file.file_reference.removeEventListener(Event.COMPLETE, this.fileLoad_Complete);
-					this.file = null;
+					t.file.file_reference.removeEventListener(Event.COMPLETE, t.fileLoad_Complete);
+					t.file = null;
 				});
 				this.file.file_reference.addEventListener(Event.COMPLETE, this.fileLoad_Complete);
 				this.file.file_reference.addEventListener(Event.COMPLETE, function ():void {
