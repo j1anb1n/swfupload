@@ -69,6 +69,7 @@
 		}
 
 		public function upload(request:URLRequest, uploadDataFieldName:String = "Filedata"):void {
+			trace('upload');
 			this._httpStatus = undefined;
 			this._request = request;
 			this._uploadDataFieldName = uploadDataFieldName;
@@ -117,6 +118,7 @@
 		
 		private function doSend():void
 		{
+			trace('doSend');
 			var urlRequest:URLRequest = new URLRequest();
 			urlRequest.url = this._request.url;
 			//urlRequest.contentType = 'multipart/form-data; boundary=' + getBoundary();
@@ -135,6 +137,7 @@
 			try {
 				_loader.load(urlRequest);
 			} catch (ex:Error) {
+				trace('IOError in dosend');
 				dispatchEvent(new IOErrorEvent(IOErrorEvent.IO_ERROR, false, false, "Exception: " + ex.message));
 				this.destroy();
 			}
@@ -143,8 +146,9 @@
 		
 		private function constructPostDataAsync():void
 		{
+			trace('constructPostDataAsync');
 			clearInterval(this.asyncWriteTimeoutId);
-
+			
 			this._data = new ByteArray();
 			this._data.endian = Endian.BIG_ENDIAN;
 			
@@ -157,6 +161,7 @@
 
 		private function writeChunkLoop(dest:ByteArray, data:ByteArray, p:uint = 0):void
 		{
+			trace('writeChunkLoop');
 			try {
 				var len:uint = Math.min(BLOCK_SIZE, data.length - p);
 				dest.writeBytes(data, p, len);
@@ -172,6 +177,7 @@
 				
 				this.asyncWriteTimeoutId = setTimeout(this.writeChunkLoop, 10, dest, data, p + len);
 			} catch (ex:Error) {
+				trace('IOError in writeChunkLoop');
 				dispatchEvent(new IOErrorEvent(IOErrorEvent.IO_ERROR));
 				this.destroy();
 			}
@@ -261,17 +267,16 @@
 		{
 			if (this._httpStatus === 200) {
 				dispatchEvent(event);
-				if (this._loader && this._loader.data.length > 0) {
+				if (this._loader && this._loader.data && this._loader.data.length > 0) {
 					dispatchEvent(new DataEvent(DataEvent.UPLOAD_COMPLETE_DATA, event.bubbles, event.cancelable, this._loader.data));
 				}
-			} else {
-				dispatchEvent(new HTTPStatusEvent(HTTPStatusEvent.HTTP_STATUS, event.bubbles, event.cancelable, this._httpStatus));
 			}
 			this.destroy();
 		}
 
 		private function onIOError( event: IOErrorEvent ): void
 		{
+			trace('MultipartURLLoader dispatch IOError');
 			dispatchEvent( event );
 			this.destroy();
 		}
@@ -284,11 +289,16 @@
 
 		private function onHTTPStatus( event: HTTPStatusEvent ): void
 		{
+			if (event.status !== 200) {
+				trace('dont dispatch http error', event.status);
+				dispatchEvent(new HTTPStatusEvent(HTTPStatusEvent.HTTP_STATUS, event.bubbles, event.cancelable, event.status));
+			}
 			this._httpStatus = event.status;
 		}
 
 		private function addListener(): void
 		{
+			trace('addListener');
 			if (this._loader != null) {
 				this._loader.addEventListener( Event.COMPLETE, this.onComplete, false, 0, false );
 				this._loader.addEventListener( IOErrorEvent.IO_ERROR, this.onIOError, false, 0, false );

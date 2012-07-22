@@ -648,7 +648,7 @@ package {
 
 				this.Debug("Event: uploadError: HTTP ERROR : File ID: " + current_file_item.id + ". HTTP Status: " + event.status + ".");
 				ExternalCall.UploadError(this.uploadError_Callback, this.ERROR_CODE_HTTP_ERROR, current_file_item.ToJavaScriptObject(), event.status.toString());
-				this.UploadComplete(true, current_file_item); 	// An IO Error is also called so we don't want to complete the upload yet.
+				//this.UploadComplete(true, current_file_item); 	// An IO Error is also called so we don't want to complete the upload yet.
 			}
 		}
 		
@@ -668,7 +668,7 @@ package {
 				this.Debug("Event: uploadError : IO Error : File ID: " + current_file_item.id + ". IO Error: " + event.text);
 				ExternalCall.UploadError(this.uploadError_Callback, this.ERROR_CODE_IO_ERROR, current_file_item.ToJavaScriptObject(), event.text);
 			}
-
+			
 			this.UploadComplete(true, current_file_item);
 		}
 
@@ -1461,10 +1461,9 @@ package {
 				t.IOError_Handler(event, current_file_item);
 			};
 
-			var loader:Loader = new Loader();
-			loader.contentLoaderInfo.addEventListener(Event.COMPLETE, this.current_file_item.eventFuncs.PrepareNormalFileCompleteHandler);
-			loader.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, current_file_item.eventFuncs.PrepareNormalFileErrorHandler);
-			loader.loadBytes(current_file_item.file_reference.data);
+			current_file_item.file_reference.addEventListener(Event.COMPLETE, current_file_item.eventFuncs.PrepareNormalFileCompleteHandler);
+			current_file_item.file_reference.addEventListener(IOErrorEvent.IO_ERROR, current_file_item.eventFuncs.PrepareNormalFileErrorHandler);
+			current_file_item.file_reference.load();
 		}
 		
 		private function PrepareNormalFileCompleteHandler(event:Event, current_file_item:FileItem):void {
