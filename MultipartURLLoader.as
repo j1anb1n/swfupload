@@ -136,21 +136,36 @@
 			this.addListener();
 
 			dispatchEvent(new Event(Event.OPEN, false, false));
-			var timer:Timer = new Timer(10000);
+			var timer:Timer = new Timer(20000);
 			var t:MultipartURLLoader = this;
 			timer.addEventListener(TimerEvent.TIMER, function(event:TimerEvent):void {
 				dispatchEvent(event);
 				t.destroy();
 			});
+			var progressTimer:Timer = new Timer(300);
+			var tap:Number = 0;
+
+			progressTimer.addEventListener(TimerEvent.TIMER, function(event:TimerEvent):void {
+				dispatchEvent(new ProgressEvent(ProgressEvent.PROGRESS, false, false, fakeProgress(), 100));
+			});
+			function fakeProgress ():Number {
+				tap++;
+				return 100 - 1 / (0.001*tap +0.01);
+			}
 			_loader.addEventListener(Event.COMPLETE, function(event:Event):void {
+				dispatchEvent(new ProgressEvent(ProgressEvent.PROGRESS, false, false, 100, 100));
+				progressTimer.stop();
 				timer.stop();
 			});
 			try {
 				timer.start();
+				progressTimer.start();
 				_loader.load(urlRequest);
 			} catch (ex:Error) {
 				trace('IOError in dosend');
 				dispatchEvent(new IOErrorEvent(IOErrorEvent.IO_ERROR, false, false, "Exception: " + ex.message));
+				progressTimer.stop();
+				timer.stop();
 				this.destroy();
 			}
 	
@@ -186,7 +201,6 @@
 					this.doSend();
 					return;
 				}
-				
 				this.asyncWriteTimeoutId = setTimeout(this.writeChunkLoop, 10, dest, data, p + len);
 			} catch (ex:Error) {
 				trace('IOError in writeChunkLoop');
@@ -307,11 +321,6 @@
 			}
 			this._httpStatus = event.status;
 		}
-
-		private function onProgress( event:ProgressEvent):void {
-			trace('onProgress');
-			dispatchEvent(event);
-		}
 		private function addListener(): void
 		{
 			trace('addListener');
@@ -320,7 +329,6 @@
 				this._loader.addEventListener( IOErrorEvent.IO_ERROR, this.onIOError, false, 0, false );
 				this._loader.addEventListener( HTTPStatusEvent.HTTP_STATUS, this.onHTTPStatus, false, 0, false );
 				this._loader.addEventListener( SecurityErrorEvent.SECURITY_ERROR, this.onSecurityError, false, 0, false );
-				this._loader.addEventListener( ProgressEvent.PROGRESS, this.onProgress, false, 0, false);
 			}
 		}
 
@@ -331,7 +339,6 @@
 				this._loader.removeEventListener( IOErrorEvent.IO_ERROR, this.onIOError );
 				this._loader.removeEventListener( HTTPStatusEvent.HTTP_STATUS, this.onHTTPStatus );
 				this._loader.removeEventListener( SecurityErrorEvent.SECURITY_ERROR, this.onSecurityError );
-				this._loader.removeEventListener( ProgressEvent.PROGRESS, this.onProgress);
 			}
 		}
 
