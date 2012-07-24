@@ -55,9 +55,11 @@
 		private var _fileData:ByteArray;
 		private var _data:ByteArray;
 		private var _httpStatus:Number;
-		
+		private var repeated:Boolean;
 		private var asyncWriteTimeoutId:Number;
-	
+		private var timeoutTimer:Timer;
+		private var progressTimer:Timer;
+		
 		private var _uploadSize:Number;
 		public function get size():Number {
 			return this._uploadSize;
@@ -68,11 +70,15 @@
 			_loader = new URLLoader();
 			_fileData = fileData;
 			_fileName = fileName;
+			repeated = false;
 			_uploadSize = 0;
 		}
 
 		public function upload(request:URLRequest, uploadDataFieldName:String = "Filedata"):void {
 			trace('upload');
+			_loader.addEventListener(IOErrorEvent.IO_ERROR, function(event:IOErrorEvent):void {
+				trace('got ioError');
+			});
 			this._httpStatus = undefined;
 			this._request = request;
 			this._uploadDataFieldName = uploadDataFieldName;
@@ -132,17 +138,25 @@
 			urlRequest.requestHeaders.push(new URLRequestHeader('Content-Type', 'multipart/form-data; boundary=' + getBoundary()));
 			
 			this._uploadSize = urlRequest.data.length;
-			
 			this.addListener();
-
 			dispatchEvent(new Event(Event.OPEN, false, false));
-			var timer:Timer = new Timer(20000);
+			try {
+				timeoutTimer.stop();
+			} catch (ex:Error) {
+				
+			};
+			try {
+				progressTimer.stop();
+			} catch (ex:Error) {
+				
+			};
+			timeoutTimer = new Timer(20000);
+			progressTimer = new Timer(300);
 			var t:MultipartURLLoader = this;
-			timer.addEventListener(TimerEvent.TIMER, function(event:TimerEvent):void {
+			timeoutTimer.addEventListener(TimerEvent.TIMER, function(event:TimerEvent):void {
 				dispatchEvent(event);
 				t.destroy();
 			});
-			var progressTimer:Timer = new Timer(300);
 			var tap:Number = 0;
 
 			progressTimer.addEventListener(TimerEvent.TIMER, function(event:TimerEvent):void {
@@ -155,17 +169,18 @@
 			_loader.addEventListener(Event.COMPLETE, function(event:Event):void {
 				dispatchEvent(new ProgressEvent(ProgressEvent.PROGRESS, false, false, 100, 100));
 				progressTimer.stop();
-				timer.stop();
+				timeoutTimer.stop();
 			});
+			trace('start to upload');
 			try {
-				timer.start();
+				timeoutTimer.start();
 				progressTimer.start();
 				_loader.load(urlRequest);
 			} catch (ex:Error) {
 				trace('IOError in dosend');
 				dispatchEvent(new IOErrorEvent(IOErrorEvent.IO_ERROR, false, false, "Exception: " + ex.message));
 				progressTimer.stop();
-				timer.stop();
+				timeoutTimer.stop();
 				this.destroy();
 			}
 	
@@ -175,10 +190,8 @@
 		{
 			trace('constructPostDataAsync');
 			clearInterval(this.asyncWriteTimeoutId);
-			
 			this._data = new ByteArray();
-			this._data.endian = Endian.BIG_ENDIAN;
-			
+			this._data.endian = Endian.BIG_ENDIAN;			
 			this._data = constructVariablesPart(this._data);
 			this._data = getFilePartHeader(this._data, this._fileName);
 
@@ -291,6 +304,7 @@
 
 		private function onComplete( event: Event ): void
 		{
+			trace('onComplete');
 			if (this._httpStatus === 200) {
 				dispatchEvent(event);
 				if (this._loader && this._loader.data && this._loader.data.length > 0) {
@@ -309,6 +323,7 @@
 
 		private function onSecurityError( event: SecurityErrorEvent ): void
 		{
+			trace('onSecurityError');
 			dispatchEvent( event );
 			this.destroy();
 		}
@@ -316,8 +331,26 @@
 		private function onHTTPStatus( event: HTTPStatusEvent ): void
 		{
 			if (event.status !== 200) {
-				trace('dont dispatch http error', event.status);
-				dispatchEvent(new HTTPStatusEvent(HTTPStatusEvent.HTTP_STATUS, event.bubbles, event.cancelable, event.status));
+				if (event.status === 400 && !repeated) {
+					trace('dont dispatch http error', event.status);
+					trace('try on more time');
+					repeated = true;
+					this.removeListener(); // onComplete wont be called
+					try {
+						timeoutTimer.stop();
+					} catch (ex:Error) {
+						
+					}
+					try {
+						progressTimer.stop();
+					} catch (ex:Error) {
+						
+					}
+					constructPostDataAsync();
+				} else {
+					trace('dispatch http error', event.status);
+					dispatchEvent(new HTTPStatusEvent(HTTPStatusEvent.HTTP_STATUS, event.bubbles, event.cancelable, event.status));
+				}
 			}
 			this._httpStatus = event.status;
 		}
