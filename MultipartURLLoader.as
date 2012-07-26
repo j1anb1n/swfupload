@@ -150,7 +150,7 @@
 			} catch (ex:Error) {
 				
 			};
-			timeoutTimer = new Timer(20000);
+			timeoutTimer = new Timer(27000);
 			progressTimer = new Timer(300);
 			var t:MultipartURLLoader = this;
 			timeoutTimer.addEventListener(TimerEvent.TIMER, function(event:TimerEvent):void {

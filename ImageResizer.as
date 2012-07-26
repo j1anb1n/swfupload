@@ -62,7 +62,7 @@ package
 		
 		public function ResizeImage():void {
 			try {
-				var timer:Timer = new Timer(1000);
+				var timer:Timer = new Timer(3000);
 				var t:ImageResizer = this;
 				timer.addEventListener(TimerEvent.TIMER, function ():void {
 					timer.stop();
