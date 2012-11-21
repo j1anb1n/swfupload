@@ -37,6 +37,7 @@ package
 		private var encoder:Number = ImageResizer.JPEGENCODER;
 		private var quality:Number = 100;
 		private var allowEnlarging:Boolean = true;
+		private var allowSmaller:Boolean = true;
 		//private var ba:ByteArray;
 		//private var baOut:ByteArray;
 		
@@ -45,13 +46,15 @@ package
 		
 		//private static var cLibEncoder:Object = null;
 		
-		public function ImageResizer(file:FileItem, targetWidth:Number, targetHeight:Number, encoder:Number, quality:Number = 100, allowEnlarging:Boolean = true) {
+		public function ImageResizer(file:FileItem, targetWidth:Number, targetHeight:Number, encoder:Number, quality:Number = 100, allowEnlarging:Boolean = true, allowSmaller:Boolean = true) {
 			this.file = file;
 			this.targetHeight = targetHeight;
 			this.targetWidth = targetWidth;
 			this.encoder = encoder;
 			this.quality = quality;
 			this.allowEnlarging = allowEnlarging;
+			this.allowSmaller = allowSmaller;
+			
 			if (this.encoder != ImageResizer.JPEGENCODER && this.encoder != ImageResizer.PNGENCODE) {
 				this.encoder = ImageResizer.JPEGENCODER;
 			}
@@ -134,6 +137,10 @@ package
 					this.newHeight = bmp.height;
 				}
 				
+				if (!this.allowEnlarging && !this.allowSmaller) {
+					this.newHeight = bmp.height;
+					this.newWidth  = bmp.width;
+				}
 				// Blur it a bit if it is sizing smaller
 				/*
 				if (this.newWidth < bmp.width || this.newHeight < bmp.height) {

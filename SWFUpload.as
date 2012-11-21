@@ -179,6 +179,8 @@ package {
 			var self:SWFUpload = this;
 			Security.allowDomain("*");	// Allow uploading to any domain
 			Security.allowInsecureDomain("*");	// Allow uploading from HTTP to HTTPS and HTTPS to HTTP
+			Security.loadPolicyFile("http://image.ganji.com/crossdomain.xml");
+			Security.loadPolicyFile("http://image.ganjistatic1.com/crossdomain.xml");
 			
 			// Keep Flash Player busy so it doesn't show the "flash script is running slowly" error
 			var counter:Number = 0;
@@ -1400,7 +1402,7 @@ package {
 					t.PrepareResizedProgress(event, current_file_item);
 				};
 
-				var resizer:ImageResizer = new ImageResizer(current_file_item, resizeSettings["width"], resizeSettings["height"], resizeSettings["encoding"], resizeSettings["quality"], resizeSettings["allowEnlarging"]);
+				var resizer:ImageResizer = new ImageResizer(current_file_item, resizeSettings["width"], resizeSettings["height"], resizeSettings["encoding"], resizeSettings["quality"], resizeSettings["allowEnlarging"], resizeSettings["allowSmaller"]);
 				resizer.addEventListener(ImageResizerEvent.COMPLETE, current_file_item.eventFuncs.PrepareResizedImageCompleteHandler);
 				resizer.addEventListener(ErrorEvent.ERROR, current_file_item.eventFuncs.PrepareResizedImageErrorHandler);
 				resizer.addEventListener(ProgressEvent.PROGRESS, current_file_item.eventFuncs.PrepareResizedProgress);
