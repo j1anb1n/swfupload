@@ -3,36 +3,37 @@ package
 {
 	import EncodeCompleteEvent;
 	import EncodeProgressEvent;
-	
+
 	import flash.display.BitmapData;
 	import flash.events.EventDispatcher;
 	import flash.utils.ByteArray;
 	import flash.utils.getTimer;
 	import flash.utils.setTimeout;
-	
+	import ExternalCall;
+
 	[Event(name=EncodeCompleteEvent.COMPLETE, type="EncodeCompleteEvent")]
 	[Event(name=EncodeProgressEvent.PROGRESS, type="EncodeProgressEvent")]
-	
+
 	public class AsyncJPEGEncoder extends EventDispatcher
 	{
 		private var width:int;
 		private var height:int;
 		private var transparent:Boolean;
-		
+
 		private var runTime:uint;
 		private var haltTime:uint;
-		
+
 		private var loopTime:int;
-		
+
 		private var sourceBitmapData:BitmapData;
 		private var sourceByteArray:ByteArray;
-		
+
 		private var DCY:Number;
 		private var DCU:Number;
 		private var DCV:Number;
-		
+
 		private var ypos:int;
-		
+
 		// Static table initialization
 		private const ZigZag:Vector.<int> = Vector.<int>([
 			 0, 1, 5, 6,14,15,27,28,
@@ -50,12 +51,12 @@ package
 		private var fdtbl_Y:Vector.<Number> = new Vector.<Number>(64, true);
 		private var fdtbl_UV:Vector.<Number> = new Vector.<Number>(64, true);
 		private var sf:int;
-		
+
 		private const aasf:Vector.<Number> = Vector.<Number>([
 				1.0, 1.387039845, 1.306562965, 1.175875602,
 				1.0, 0.785694958, 0.541196100, 0.275899379
 			]);
-		
+
 		private var YQT:Vector.<int> = Vector.<int>([
 				16, 11, 10, 16, 24, 40, 51, 61,
 				12, 12, 14, 19, 26, 58, 60, 55,
@@ -66,7 +67,7 @@ package
 				49, 64, 78, 87,103,121,120,101,
 				72, 92, 95, 98,112,100,103, 99
 			]);
-		
+
 		private const UVQT:Vector.<int> = Vector.<int>([
 				17, 18, 24, 47, 99, 99, 99, 99,
 				18, 21, 26, 66, 99, 99, 99, 99,
@@ -77,7 +78,7 @@ package
 				99, 99, 99, 99, 99, 99, 99, 99,
 				99, 99, 99, 99, 99, 99, 99, 99
 			]);
-	
+
 		private function initQuantTables(sf:int):void
 		{
 			var i:int;
@@ -115,12 +116,12 @@ package
 				}
 			}
 		}
-	
+
 		private var YDC_HT:Vector.<BitString>;
 		private var UVDC_HT:Vector.<BitString>;
 		private var YAC_HT:Vector.<BitString>;
 		private var UVAC_HT:Vector.<BitString>;
-	
+
 		private function computeHuffmanTbl(nrcodes:Vector.<int>, std_table:Vector.<int>):Vector.<BitString>
 		{
 			var codevalue:int = 0;
@@ -141,7 +142,7 @@ package
 			}
 			return HT;
 		}
-	
+
 		private var std_dc_luminance_nrcodes:Vector.<int> = Vector.<int>([0,0,1,5,1,1,1,1,1,1,0,0,0,0,0,0,0]);
 		private var std_dc_luminance_values:Vector.<int> = Vector.<int>([0,1,2,3,4,5,6,7,8,9,10,11]);
 		private var std_ac_luminance_nrcodes:Vector.<int> = Vector.<int>([0,0,2,1,3,3,2,4,3,5,5,4,4,0,0,1,0x7d]);
@@ -166,7 +167,7 @@ package
 																				0xe3,0xe4,0xe5,0xe6,0xe7,0xe8,0xe9,0xea,
 																				0xf1,0xf2,0xf3,0xf4,0xf5,0xf6,0xf7,0xf8,
 																				0xf9,0xfa]);
-	
+
 		private var std_dc_chrominance_nrcodes:Vector.<int> = Vector.<int>([0,0,3,1,1,1,1,1,1,1,1,1,0,0,0,0,0]);
 		private var std_dc_chrominance_values:Vector.<int> = Vector.<int>([0,1,2,3,4,5,6,7,8,9,10,11]);
 		private var std_ac_chrominance_nrcodes:Vector.<int> = Vector.<int>([0,0,2,1,2,4,4,3,4,7,5,4,4,0,1,2,0x77]);
@@ -200,10 +201,10 @@ package
 			YAC_HT = computeHuffmanTbl(std_ac_luminance_nrcodes,std_ac_luminance_values);
 			UVAC_HT = computeHuffmanTbl(std_ac_chrominance_nrcodes,std_ac_chrominance_values);
 		}
-	
+
 		private var bitcode:Vector.<BitString> = new Vector.<BitString>(65535, true);
 		private var category:Vector.<int> = new Vector.<int>(65535, true);
-	
+
 		private function initCategoryNumber():void
 		{
 			var nrlower:int = 1;
@@ -235,13 +236,13 @@ package
 				nrupper <<= 1;
 			}
 		}
-	
+
 		// IO functions
-	
+
 		private var byteout:ByteArray;
 		private var bytenew:int = 0;
 		private var bytepos:int = 7;
-	
+
 		private function writeBits(bs:BitString):void
 		{
 			var value:int = bs.val;
@@ -268,9 +269,9 @@ package
 				}
 			}
 		}
-	
+
 		// DCT & quantization core
-	
+
 		private function fDCTQuant(data:Vector.<Number>, fdtbl:Vector.<Number>):Vector.<int>
 		{
 			/* Pass 1: process rows. */
@@ -280,7 +281,7 @@ package
 			const I8:int = 8;
 			const I64:int = 64;
 			for (i=0; i<I8; ++i)
-			{	
+			{
                 d0 = data[int(dataOff)];
 				d1 = data[int(dataOff+1)];
 				d2 = data[int(dataOff+2)];
@@ -289,7 +290,7 @@ package
 				d5 = data[int(dataOff+5)];
 				d6 = data[int(dataOff+6)];
 				d7 = data[int(dataOff+7)];
-				
+
 				var tmp0:Number = d0 + d7;
 				var tmp7:Number = d0 - d7;
 				var tmp1:Number = d1 + d6;
@@ -298,42 +299,42 @@ package
 				var tmp5:Number = d2 - d5;
 				var tmp3:Number = d3 + d4;
 				var tmp4:Number = d3 - d4;
-	
+
 				/* Even part */
 				var tmp10:Number = tmp0 + tmp3;	/* phase 2 */
 				var tmp13:Number = tmp0 - tmp3;
 				var tmp11:Number = tmp1 + tmp2;
 				var tmp12:Number = tmp1 - tmp2;
-	
+
 				data[int(dataOff)] = tmp10 + tmp11; /* phase 3 */
 				data[int(dataOff+4)] = tmp10 - tmp11;
-	
+
 				var z1:Number = (tmp12 + tmp13) * 0.707106781; /* c4 */
 				data[int(dataOff+2)] = tmp13 + z1; /* phase 5 */
 				data[int(dataOff+6)] = tmp13 - z1;
-	
+
 				/* Odd part */
 				tmp10 = tmp4 + tmp5; /* phase 2 */
 				tmp11 = tmp5 + tmp6;
 				tmp12 = tmp6 + tmp7;
-	
+
 				/* The rotator is modified from fig 4-8 to avoid extra negations. */
 				var z5:Number = (tmp10 - tmp12) * 0.382683433; /* c6 */
 				var z2:Number = 0.541196100 * tmp10 + z5; /* c2-c6 */
 				var z4:Number = 1.306562965 * tmp12 + z5; /* c2+c6 */
 				var z3:Number = tmp11 * 0.707106781; /* c4 */
-	
+
 				var z11:Number = tmp7 + z3;	/* phase 5 */
 				var z13:Number = tmp7 - z3;
-	
+
 				data[int(dataOff+5)] = z13 + z2;	/* phase 6 */
 				data[int(dataOff+3)] = z13 - z2;
 				data[int(dataOff+1)] = z11 + z4;
 				data[int(dataOff+7)] = z11 - z4;
-	
+
 				dataOff += 8; /* advance pointer to next row */
 			}
-	
+
 			/* Pass 2: process columns. */
 			dataOff = 0;
 			for (i=0; i<I8; ++i)
@@ -346,7 +347,7 @@ package
 				d5 = data[int(dataOff + 40)];
 				d6 = data[int(dataOff + 48)];
 				d7 = data[int(dataOff + 56)];
-				
+
 				var tmp0p2:Number = d0 + d7;
 				var tmp7p2:Number = d0 - d7;
 				var tmp1p2:Number = d1 + d6;
@@ -355,42 +356,42 @@ package
 				var tmp5p2:Number = d2 - d5;
 				var tmp3p2:Number = d3 + d4;
 				var tmp4p2:Number = d3 - d4;
-	
+
 				/* Even part */
 				var tmp10p2:Number = tmp0p2 + tmp3p2;	/* phase 2 */
 				var tmp13p2:Number = tmp0p2 - tmp3p2;
 				var tmp11p2:Number = tmp1p2 + tmp2p2;
 				var tmp12p2:Number = tmp1p2 - tmp2p2;
-	
+
 				data[int(dataOff)] = tmp10p2 + tmp11p2; /* phase 3 */
 				data[int(dataOff+32)] = tmp10p2 - tmp11p2;
-	
+
 				var z1p2:Number = (tmp12p2 + tmp13p2) * 0.707106781; /* c4 */
 				data[int(dataOff+16)] = tmp13p2 + z1p2; /* phase 5 */
 				data[int(dataOff+48)] = tmp13p2 - z1p2;
-	
+
 				/* Odd part */
 				tmp10p2 = tmp4p2 + tmp5p2; /* phase 2 */
 				tmp11p2 = tmp5p2 + tmp6p2;
 				tmp12p2 = tmp6p2 + tmp7p2;
-	
+
 				/* The rotator is modified from fig 4-8 to avoid extra negations. */
 				var z5p2:Number = (tmp10p2 - tmp12p2) * 0.382683433; /* c6 */
 				var z2p2:Number = 0.541196100 * tmp10p2 + z5p2; /* c2-c6 */
 				var z4p2:Number = 1.306562965 * tmp12p2 + z5p2; /* c2+c6 */
 				var z3p2:Number= tmp11p2 * 0.707106781; /* c4 */
-	
+
 				var z11p2:Number = tmp7p2 + z3p2;	/* phase 5 */
 				var z13p2:Number = tmp7p2 - z3p2;
-	
+
 				data[int(dataOff+40)] = z13p2 + z2p2; /* phase 6 */
 				data[int(dataOff+24)] = z13p2 - z2p2;
 				data[int(dataOff+ 8)] = z11p2 + z4p2;
 				data[int(dataOff+56)] = z11p2 - z4p2;
-	
+
 				dataOff++; /* advance pointer to next column */
 			}
-	
+
 			// Quantize/descale the coefficients
 			var fDCTQuant:Number;
 			for (i=0; i<I64; ++i)
@@ -401,7 +402,7 @@ package
 			}
 			return outputfDCTQuant;
 		}
-	
+
 		// Chunk writing
 		private function writeAPP0():void
 		{
@@ -420,7 +421,7 @@ package
 			byteout.writeByte(0); // thumbnwidth
 			byteout.writeByte(0); // thumbnheight
 		}
-	
+
 		private function writeSOF0():void
 		{
 			byteout.writeShort(0xFFC0); // marker
@@ -439,31 +440,31 @@ package
 			byteout.writeByte(0x11); // HVV
 			byteout.writeByte(1);    // QTV
 		}
-	
+
 		private function writeDQT():void
 		{
 			byteout.writeShort(0xFFDB); // marker
 			byteout.writeShort(132);	   // length
 			byteout.writeByte(0);
-			
+
 			var i:int;
 			const I64:int = 64;
 			for (i=0; i<I64; ++i) {
 				byteout.writeByte(YTable[i]);
 			}
-				
+
 			byteout.writeByte(1);
-			
+
 			for (i=0; i<I64; ++i) {
 				byteout.writeByte(UVTable[i]);
 			}
 		}
-	
+
 		private function writeDHT():void
 		{
 			byteout.writeShort(0xFFC4); // marker
 			byteout.writeShort(0x01A2); // length
-	
+
 			byteout.writeByte(0); // HTYDCinfo
 			var i:int;
 			const I11:int = 11;
@@ -476,9 +477,9 @@ package
 			for (i=0; i<=I11; ++i) {
 				byteout.writeByte(std_dc_luminance_values[int(i)]);
 			}
-	
+
 			byteout.writeByte(0x10); // HTYACinfo
-			
+
 			for (i=0; i<I16; ++i) {
 				byteout.writeByte(std_ac_luminance_nrcodes[int(i + 1)]);
 			}
@@ -488,7 +489,7 @@ package
 			}
 
 			byteout.writeByte(1); // HTUDCinfo
-			
+
 			for (i=0; i<I16; ++i) {
 				byteout.writeByte(std_dc_chrominance_nrcodes[int(i + 1)]);
 			}
@@ -498,15 +499,15 @@ package
 			}
 
 			byteout.writeByte(0x11); // HTUACinfo
-			
+
 			for (i=0; i<I16; ++i)
 				byteout.writeByte(std_ac_chrominance_nrcodes[int(i+1)]);
-				
+
 			for (i=0; i<=I161; ++i) {
 				byteout.writeByte(std_ac_chrominance_values[int(i)]);
 			}
 		}
-	
+
 		private function writeSOS():void
 		{
 			byteout.writeShort(0xFFDA); // marker
@@ -522,10 +523,10 @@ package
 			byteout.writeByte(0x3f); // Se
 			byteout.writeByte(0); // Bf
 		}
-	
+
 		// Core processing
 		internal var DU:Vector.<int> = new Vector.<int>(64, true);
-	
+
 		private function processDU(CDU:Vector.<Number>, fdtbl:Vector.<Number>, DC:Number, HTDC:Vector.<BitString>, HTAC:Vector.<BitString>):Number
 		{
 			var EOB:BitString = HTAC[0x00];
@@ -578,18 +579,18 @@ package
 			}
 			return DC;
 		}
-	
+
 		private var YDU:Vector.<Number> = new Vector.<Number>(64, true);
 		private var UDU:Vector.<Number> = new Vector.<Number>(64, true);
 		private var VDU:Vector.<Number> = new Vector.<Number>(64, true);
-	
+
 		private function RGB2YUV(xpos:int, ypos:int):void
 		{
 			var pos:int=0;
 			const I8:int = 8;
 			for (var y:int=0; y<I8; ++y) {
 				for (var x:int=0; x<I8; ++x) {
-					
+
 					var P:uint;
 					if (sourceBitmapData) {
                     	P = sourceBitmapData.getPixel32(xpos+x, ypos+y);
@@ -597,7 +598,7 @@ package
                    		sourceByteArray.position = 4 * ((ypos+y) * width + xpos+x);
              			P = sourceByteArray.readUnsignedInt();
 					}
-					
+
 					var R:int = (P>>16)&0xFF;
 					var G:int = (P>> 8)&0xFF;
 					var B:int = (P    )&0xFF;
@@ -608,25 +609,25 @@ package
 				}
 			}
 		}
-	
+
 		public function AsyncJPEGEncoder(quality:int=50, run:uint=500, stop:uint=500)
 		{
 			if (quality <= 0) {
 				quality = 1;
 			}
-		
+
 			if (quality > 100) {
 				quality = 100;
 			}
-				
+
 			sf = quality < 50 ? int(5000 / quality) : int(200 - (quality<<1));
-			
+
 			runTime=run;
 			haltTime=stop;
-			
+
 			init();
 		}
-		
+
 		private function init():void
 		{
 			ZigZag.fixed = true;
@@ -646,26 +647,26 @@ package
 			initCategoryNumber();
 			initQuantTables(sf);
 		}
-		
+
 		public function encode(bitmapData:BitmapData):void
 	    {
 	        internalEncode(bitmapData, bitmapData.width, bitmapData.height,
 								  bitmapData.transparent);
 	    }
-			
+
 		 public function encodeByteArray(byteArray:ByteArray, width:int, height:int,
 									transparent:Boolean = true):void
 	    {
 	        internalEncode(byteArray, width, height, transparent);
 	    }
-	    
+
 	    private function internalEncode(source:Object, width:int, height:int,
 									transparent:Boolean = true):void
 	    {
 	    	this.width=width;
 	    	this.height=height;
 	    	this.transparent=transparent;
-	    	
+
 	     	startEncode(source);
 	        loopEncode();
 	    }
@@ -674,17 +675,17 @@ package
 	    	// The source is either a BitmapData or a ByteArray.
 	    	sourceBitmapData = source as BitmapData;
 	    	sourceByteArray = source as ByteArray;
-	    	
+
 	    	if (sourceByteArray) {
 	    		sourceByteArray.position = 0;
 			}
-    		
+
 	    	// Initialize bit writer
 			byteout = new ByteArray();
-			
+
 			bytenew=0;
 			bytepos=7;
-	
+
 			// Add JPEG headers
 			byteout.writeShort(0xFFD8); // SOI
 			writeAPP0();
@@ -692,18 +693,18 @@ package
 			writeSOF0();
 			writeDHT();
 			writeSOS();
-			
+
 			// Encode 8x8 macroblocks
 			DCY=0;
 			DCU=0;
 			DCV=0;
-			
+
 			bytenew=0;
 			bytepos=7;
-			
+
 			ypos=0;
 	    }
-	    
+
 	    private function loopEncode():void
 	    {
 	    	//async
@@ -713,11 +714,11 @@ package
 		    	setTimeout(loopEncode, haltTime);
 		    	return;
 	    	}
-	    	
+
 	    	if (ypos<height)
 			{
 				var time:int=getTimer();
-				
+
 				for (var xpos:int=0; xpos<width; xpos+=8)
 				{
 					RGB2YUV(xpos, ypos);
@@ -725,10 +726,10 @@ package
 					DCU = processDU(UDU, fdtbl_UV, DCU, UVDC_HT, UVAC_HT);
 					DCV = processDU(VDU, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
 				}
-				
+
 				//progress
 	            dispatchEvent(new EncodeProgressEvent(ypos,height));
-	            
+
 	            //next line
 	            ypos+=8;
 	            loopTime+=getTimer()-time;
@@ -739,7 +740,7 @@ package
 				endEncode();
 			}
 	    }
-	    
+
 	    private function endEncode():void
 	    {
 	    	// Do the bit alignment of the EOI marker
@@ -751,7 +752,7 @@ package
 				writeBits(fillbits);
 			}
 			byteout.writeShort(0xFFD9); //EOI
-			
+			ExternalCall.Debug('SWFUpload.debug', 'AsyncJPEGEncoder:: byteout:'+byteout.length);
 			dispatchEvent(new EncodeCompleteEvent(byteout));
 	    }
 	}

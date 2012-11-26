@@ -1,5 +1,5 @@
 ﻿
-package  
+package
 {
 	import flash.display.Bitmap;
 	import flash.display.BitmapData;
@@ -23,7 +23,7 @@ package
 	//import cmodule.jpegencoder.CLibInit;
 	import EncodeCompleteEvent;
 	import EncodeProgressEvent;
-
+	import ExternalCall
 	/*
 	Technique adapted from Kun Janos (http://kun-janos.ro/blog/?p=107)
 	*/
@@ -40,21 +40,22 @@ package
 		private var allowSmaller:Boolean = true;
 		//private var ba:ByteArray;
 		//private var baOut:ByteArray;
-		
+
 		public static const JPEGENCODER:Number = -1;
 		public static const PNGENCODE:Number = -2;
-		
+
 		//private static var cLibEncoder:Object = null;
-		
+
 		public function ImageResizer(file:FileItem, targetWidth:Number, targetHeight:Number, encoder:Number, quality:Number = 100, allowEnlarging:Boolean = true, allowSmaller:Boolean = true) {
 			this.file = file;
 			this.targetHeight = targetHeight;
 			this.targetWidth = targetWidth;
+			this.debug('set encode to' + encoder);
 			this.encoder = encoder;
 			this.quality = quality;
 			this.allowEnlarging = allowEnlarging;
 			this.allowSmaller = allowSmaller;
-			
+
 			if (this.encoder != ImageResizer.JPEGENCODER && this.encoder != ImageResizer.PNGENCODE) {
 				this.encoder = ImageResizer.JPEGENCODER;
 			}
@@ -62,12 +63,16 @@ package
 				this.quality = 100;
 			}
 		}
-		
+		private function debug(message:String):void {
+			ExternalCall.Debug('SWFUpload.debug', 'ImageResizer::' + message);
+		}
+
 		public function ResizeImage():void {
 			try {
 				var timer:Timer = new Timer(3000);
 				var t:ImageResizer = this;
 				timer.addEventListener(TimerEvent.TIMER, function ():void {
+					t.debug('error in loading file');
 					timer.stop();
 					dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, 'error in loading file'));
 					t.file.file_reference.removeEventListener(Event.COMPLETE, t.fileLoad_Complete);
@@ -80,6 +85,7 @@ package
 				this.file.file_reference.load();
 				timer.start();
 			} catch (ex:Error) {
+				this.debug('error in ResizeImage: ' + ex.message);
 				this.file.file_reference.removeEventListener(Event.COMPLETE, this.fileLoad_Complete);
 				dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, "Loading from file reference: " + ex.message));
 				this.file = null;
@@ -87,6 +93,7 @@ package
 		}
 		private function fileLoad_Complete(event:Event):void {
 			try {
+				this.debug('file load');
 				event.target.removeEventListener(Event.COMPLETE, this.fileLoad_Complete);
 				var loader:Loader = new Loader();
 				// Load the image data, resizing takes place in the event handler
@@ -107,27 +114,29 @@ package
 
 			dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, "Resizing: " + event.text));
 		}
-		
+
 		private function loader_Complete(event:Event):void {
 			try {
+				this.debug('loader_complete');
 				var bytes:ByteArray;
-				
+
 				event.target.removeEventListener(Event.COMPLETE, this.loader_Complete);
 				event.target.removeEventListener(IOErrorEvent.IO_ERROR, this.loader_Error);
 
 				var loader:Loader = Loader(event.target.loader);
 
 				var contentType:String = loader.contentLoaderInfo.contentType;
-				
+				this.setEncoder(contentType);
+
 				// Calculate the new image size
 				var targetRatio:Number = this.targetWidth / this.targetHeight;
 				var imgRatio:Number = loader.width / loader.height;
 				this.newHeight = (targetRatio > imgRatio) ? this.targetHeight : Math.min(this.targetWidth / imgRatio, this.targetHeight);
 				this.newWidth = (targetRatio > imgRatio) ? Math.min(imgRatio * this.targetHeight, this.targetWidth) : this.targetWidth;
-				
+
 				// Get the image data
 				var bmp:BitmapData = Bitmap(loader.content).bitmapData;
-				
+
 				loader.unload();
 				loader = null;
 
@@ -136,81 +145,66 @@ package
 					this.newWidth = bmp.width;
 					this.newHeight = bmp.height;
 				}
-				
+
 				if (!this.allowEnlarging && !this.allowSmaller) {
 					this.newHeight = bmp.height;
 					this.newWidth  = bmp.width;
 				}
-				// Blur it a bit if it is sizing smaller
-				/*
-				if (this.newWidth < bmp.width || this.newHeight < bmp.height) {
-					// Apply the blur filter that helps clean up the resized image result
-					var blurMultiplier:Number = 1.15; // 1.25;
-					var blurXValue:Number = Math.max(1, bmp.width / this.newWidth) * blurMultiplier;
-					var blurYValue:Number = Math.max(1, bmp.height / this.newHeight) * blurMultiplier;
-					
-					var blurFilter:BlurFilter = new BlurFilter(blurXValue, blurYValue, int(BitmapFilterQuality.LOW));
-					bmp.applyFilter(bmp, new Rectangle(0, 0, bmp.width, bmp.height), new Point(0, 0), blurFilter);
-				}*/
 
 				if (this.newWidth < bmp.width || this.newHeight < bmp.height || this.IsTranscoding(contentType)) {
 					// Apply the resizing
 					var matrix:Matrix = new Matrix();
 					matrix.identity();
 					matrix.createBox(this.newWidth / bmp.width, this.newHeight / bmp.height);
-				
+
 					var resizedBmp:BitmapData = new BitmapData(this.newWidth, this.newHeight, true, 0x000000);
 					resizedBmp.draw(bmp, matrix, null, null, null, true);
-					
+
 					bmp.dispose();
-					
+
 					var encoder:Object = null;
 					if (this.encoder == ImageResizer.PNGENCODE) {
 						encoder = new PNGEncoder(PNGEncoder.TYPE_SUBFILTER, 1);
 					} else {
 						encoder = new AsyncJPEGEncoder(this.quality, 0, 100);
 					}
-						
+
 					encoder.addEventListener(EncodeCompleteEvent.COMPLETE, this.EncodeCompleteHandler);
 					encoder.addEventListener(EncodeProgressEvent.PROGRESS, this.eventProgress);
 					encoder.addEventListener(ErrorEvent.ERROR, this.EncodeErrorHandler);
 					encoder.encode(resizedBmp);
-										
-						/*				
-						this.ba = resizedBmp.getPixels(resizedBmp.rect);
-						this.ba.position = 0;
-						this.baOut = new ByteArray();
-
-						if (ImageResizer.cLibEncoder === null) {
-							ImageResizer.cLibEncoder = (new CLibInit).init();
-						}
-						ImageResizer.cLibEncoder.encodeAsync(this.compressFinished, this.ba, this.baOut, resizedBmp.width, resizedBmp.height, this.quality);
-						*/
 				} else {
 					// Just send along the unmodified data
 					dispatchEvent(new ImageResizerEvent(ImageResizerEvent.COMPLETE, this.file.file_reference.data, this.encoder));
 				}
-				
+
 			} catch (ex:Error) {
-				/*
-				if (this.ba !== null) {
-					this.ba.clear();
-				}
-				if (this.baOut !== null) {
-					this.baOut.clear();
-				}
-				*/
-				
 				dispatchEvent(new ErrorEvent(ErrorEvent.ERROR, false, false, "Resizing: " + ex.message));
 			}
-			
+
 			this.file = null;
 		}
-		
+
 		private function IsTranscoding(type:String):Boolean {
-			return !((type == "image/jpeg" && this.encoder == ImageResizer.JPEGENCODER) || (type == "image/png" && this.encoder == ImageResizer.PNGENCODE));
+			if (type === "image/jpeg" || type === '"image/png') {
+				return true;
+			} else {
+				return false;
+			}
 		}
-		
+
+		private function setEncoder(type:String):Boolean {
+			if (type === "image/jpeg") {
+				this.encoder === ImageResizer.JPEGENCODER;
+				return true;
+			}
+			if (type === 'image/png') {
+				this.encoder === ImageResizer.PNGENCODE;
+				return true;
+			}
+			return false;
+		}
+
 		private function EncodeErrorHandler(e:ErrorEvent):void {
 			dispatchEvent(e);
 		}
@@ -220,19 +214,19 @@ package
 			this.baOut.position = 0;
 			this.ba.clear();
 
-			this.EncodeCompleteHandler(new EncodeCompleteEvent(baOut));	
+			this.EncodeCompleteHandler(new EncodeCompleteEvent(baOut));
 		}
 		*/
-		
+
 		private function EncodeCompleteHandler(e:EncodeCompleteEvent):void {
 			dispatchEvent(new ImageResizerEvent(ImageResizerEvent.COMPLETE, e.data, this.encoder));
 		}
-		
+
 		private function eventProgress(e:EncodeProgressEvent):void {
 			dispatchEvent(new ProgressEvent(ProgressEvent.PROGRESS, false, false, e.doneLines, e.totalLines));
 			// (e.bytesLoaded / e.bytesTotal);
 		}
-		
+
 	}
-	
+
 }

@@ -1,17 +1,7 @@
 package {
 	import flash.external.ExternalInterface;
 
-	internal class ExternalCall
-	{
-		
-		/*public function ExternalCall()
-		{
-
-		}
-		*/
-		public static function Console(callback:String, message:String):void {
-			ExternalInterface.call(callback, message);
-		}
+	internal class ExternalCall {
 		public static function Simple(callback:String):void {
 			ExternalInterface.call(callback);
 		}
@@ -21,81 +11,74 @@ package {
 		public static function SendImage(callback:String, preview_name:String, file_id:String):void {
 			ExternalInterface.call(callback, EscapeMessage(preview_name), EscapeMessage(file_id));
 		}
-		
+
 		public static function FileQueued(callback:String, file_object:Object):void {
 			ExternalInterface.call(callback, EscapeMessage(file_object));
 		}
 		public static function FileQueueError(callback:String, error_code:Number, file_object:Object, message:String):void {
-			
 			ExternalInterface.call(callback, EscapeMessage(file_object), EscapeMessage(error_code), EscapeMessage(message));
-			
 		}
 		public static function FileDialogComplete(callback:String, num_files_selected:Number, num_files_queued:Number, total_num_files_queued:Number):void {
-			
 			ExternalInterface.call(callback, EscapeMessage(num_files_selected), EscapeMessage(num_files_queued), EscapeMessage(total_num_files_queued));
-			
 		}
-		
+
 		public static function UploadResizeStart(callback:String, file_object:Object, resizeSettings:Object):void  {
 			ExternalInterface.call(callback, EscapeMessage(file_object), EscapeMessage(resizeSettings));
 		}
-		
+
 		public static function UploadResizeComplete(callback:String, file_object:Object):void  {
 			ExternalInterface.call(callback, EscapeMessage(file_object));
 		}
-		
+
 		public static function UploadStart(callback:String, file_object:Object):void  {
 			ExternalInterface.call(callback, EscapeMessage(file_object));
 		}
-		
+
 		public static function ResizeProgress(callback:String, file_object:Object, bytes_loaded:uint, bytes_total:uint):void {
 			ExternalInterface.call(callback, EscapeMessage(file_object), EscapeMessage(bytes_loaded), EscapeMessage(bytes_total));
 		}
-		
+
 		public static function UploadProgress(callback:String, file_object:Object, bytes_loaded:uint, bytes_total:uint):void {
 			ExternalInterface.call(callback, EscapeMessage(file_object), EscapeMessage(bytes_loaded), EscapeMessage(bytes_total));
 		}
-		
+
 		public static function UploadSuccess(callback:String, file_object:Object, server_data:String, responseReceived:Boolean):void {
-			
+
 			ExternalInterface.call(callback, EscapeMessage(file_object), EscapeMessage(server_data), EscapeMessage(responseReceived));
-			
+
 		}
 		public static function UploadError(callback:String, error_code:Number, file_object:Object, message:String):void {
-			
 			ExternalInterface.call(callback, EscapeMessage(file_object), EscapeMessage(error_code), EscapeMessage(message));
-			
 		}
 		public static function UploadComplete(callback:String, file_object:Object):void {
-			
 			ExternalInterface.call(callback, EscapeMessage(file_object));
-			
 		}
 		public static function Debug(callback:String, message:String):void {
+			trace(message);
 			ExternalInterface.call(callback, EscapeMessage(message));
 		}
-		
+
 		public static function UploaderReady(callback:String):void {
 			ExternalInterface.call(callback);
 		}
-		
+
 		public static function Bool(callback:String):Boolean {
 			return ExternalInterface.call(callback);
 		}
-		
+
 		public static function Generic(callback:String, ... rest):* {
 			var escapedRest:Array = new Array();
-			for each (var i:* in rest) 
+			for each (var i:* in rest)
 			{
 				escapedRest.push(EscapeMessage(i));
 			}
-			
+
 			return ExternalInterface.call(callback, escapedRest);
 		}
-		
-		
+
+
 		/* Escapes all the backslashes which are not translated correctly in the Flash -> JavaScript Interface
-		 * 
+		 *
 		 * These functions had to be developed because the ExternalInterface has a bug that simply places the
 		 * value a string in quotes (except for a " which is escaped) in a JavaScript string literal which
 		 * is executed by the browser.  These often results in improperly escaped string literals if your
@@ -109,11 +92,11 @@ package {
 		 *  3) \u is interpreted as a unicode character and causes an error in IE
 		 *  4) \\ is translated to \
 		 *  5) leaving an unescaped " which causes an error
-		 * 
+		 *
 		 * I fixed this by escaping \ characters in all outgoing strings.  The above escaped string becomes:
 		 * 		var __flash__temp = "\"c:\\Program Files\\uploadtools\\\"";
 		 * which contains the correct string literal.
-		 * 
+		 *
 		 * Note: The "var __flash__temp = " portion of the example is part of the ExternalInterface not part of
 		 * my escaping routine.
 		 */
@@ -127,10 +110,10 @@ package {
 			else if (message is Object) {
 				message = EscapeObject(message);
 			}
-			
+
 			return message;
 		}
-		
+
 		private static function EscapeString(message:String):String {
 			var replaceSlashPattern:RegExp = /\\/g;
 			var replaceNewLinePattern:RegExp = /\n/g;
@@ -153,6 +136,5 @@ package {
 			}
 			return message_obj;
 		}
-
 	}
 }
