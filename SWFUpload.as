@@ -1369,15 +1369,13 @@ package {
 					current_file_item.upload_type = FileItem.UPLOAD_TYPE_NORMAL;
 				}
 
-				if (resizeSettings != null && current_file_item.file_reference.size < 10240000) {
+				if (resizeSettings != null && current_file_item.file_reference.size < 10240000 && current_file_item.file_reference.size > 300000) {
 					this.Debug("StartUpload(): Uploading Type: Resized Image.");
 					current_file_item.file_status = FileItem.FILE_STATUS_IN_RESIZE;
-					ExternalCall.Debug('SWFUpload.debug', 'start to resize');
 					this.PrepareResizedImage(resizeSettings, current_file_item);
 				} else {
 					this.Debug("StartUpload(): Start upload.");
 					current_file_item.file_status = FileItem.FILE_STATUS_IN_PROGRESS;
-					ExternalCall.Debug('SWFUpload.debug', 'start to direct upload');
 					this.PrepareNormalFile(current_file_item);
 				}
 			}
@@ -1473,38 +1471,30 @@ package {
 		}
 
 		private function PrepareNormalFile(current_file_item:FileItem):void {
-			ExternalCall.Debug('SWFUpload.debug', 'normal file');
 
 			this.Debug('PrepareNormalFile(): current_file_item.index = ' + this.FindIndexInFileQueue(current_file_item.id));
 			var t:SWFUpload = this;
 			if (current_file_item.uploader == null && current_file_item.file_reference) {
-				ExternalCall.Debug('SWFUpload.debug', 'normal file 1');
 				current_file_item.eventFuncs.PrepareNormalFileCompleteHandler = function (event:Event):void {
 					t.PrepareNormalFileCompleteHandler(event, current_file_item);
 				};
 				current_file_item.eventFuncs.PrepareNormalFileErrorHandler = function (event:IOErrorEvent):void {
-					ExternalCall.Debug('SWFUpload.debug', 'io error');
 					t.IOError_Handler(event, current_file_item);
 				};
-				ExternalCall.Debug('SWFUpload.debug', 'normal file 1.2');
 				current_file_item.file_reference.addEventListener(Event.COMPLETE, current_file_item.eventFuncs.PrepareNormalFileCompleteHandler);
 
 				current_file_item.file_reference.addEventListener(IOErrorEvent.IO_ERROR, current_file_item.eventFuncs.PrepareNormalFileErrorHandler);
 				try {
-
 					current_file_item.file_reference.load();
 				} catch (ex:Error) {
-					ExternalCall.Debug('SWFUpload.debug', 'normal file load error'+ex.message);
 				}
 			} else {
-				ExternalCall.Debug('SWFUpload.debug', 'normal file 2');
 				ExternalCall.UploadStart(this.uploadStart_Callback, current_file_item.ToJavaScriptObject());
 			}
 
 		}
 
 		private function PrepareNormalFileCompleteHandler(event:Event, current_file_item:FileItem):void {
-			ExternalCall.Debug('SWFUpload.debug', 'normal file 3');
 			current_file_item.uploader = new MultipartURLLoader(current_file_item.file_reference.data, current_file_item.file_reference.name);
 			ExternalCall.UploadStart(this.uploadStart_Callback, current_file_item.ToJavaScriptObject());
 		}
@@ -1512,7 +1502,6 @@ package {
 		// This starts the upload when the user returns TRUE from the uploadStart event.  Rather than just have the value returned from
 		// the function we do a return function call so we can use the setTimeout work-around for Flash/JS circular calls.
 		private function ReturnUploadStart(start_upload:Boolean, file_id:String):void {
-			ExternalCall.Debug('SWFUpload.debug', 'return upload start');
 
 			this.Debug('ReturnUploadStart()');
 			var js_object:Object;
