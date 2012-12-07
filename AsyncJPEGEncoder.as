@@ -9,7 +9,6 @@ package
 	import flash.utils.ByteArray;
 	import flash.utils.getTimer;
 	import flash.utils.setTimeout;
-	import ExternalCall;
 
 	[Event(name=EncodeCompleteEvent.COMPLETE, type="EncodeCompleteEvent")]
 	[Event(name=EncodeProgressEvent.PROGRESS, type="EncodeProgressEvent")]
@@ -752,7 +751,6 @@ package
 				writeBits(fillbits);
 			}
 			byteout.writeShort(0xFFD9); //EOI
-			ExternalCall.Debug('SWFUpload.debug', 'AsyncJPEGEncoder:: byteout:'+byteout.length);
 			dispatchEvent(new EncodeCompleteEvent(byteout));
 	    }
 	}

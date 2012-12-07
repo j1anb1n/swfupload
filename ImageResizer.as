@@ -186,7 +186,7 @@ package
 		}
 
 		private function IsTranscoding(type:String):Boolean {
-			if (type === "image/jpeg" || type === '"image/png') {
+			if (type === "image/jpeg" || type === 'image/png') {
 				return true;
 			} else {
 				return false;

@@ -6,6 +6,7 @@ package {
 	import flash.display.LoaderInfo;
 	import flash.utils.ByteArray;
 	import flash.events.*;
+	import ExternalCall;
 
 	internal class FileItem
 	{
@@ -41,7 +42,6 @@ package {
 			this.id = control_id + "_" + (FileItem.file_id_sequence++);
 			this.file_status = FileItem.FILE_STATUS_NEW;
 			this.index = index;
-
 
 			this.js_object = {
 				id: this.id,
