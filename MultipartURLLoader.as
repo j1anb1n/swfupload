@@ -23,6 +23,7 @@
 	import flash.utils.clearInterval;
 	import flash.utils.Timer;
 	import flash.events.TimerEvent;
+	import ExternalCall;
 
 
 	/**
@@ -31,12 +32,12 @@
 	 * Original idea by Marston Development Studio - http://marstonstudio.com/?p=36
 	 *
 	 * License: MIT
-	 * 
+	 *
 	 * @author Eugene Zatepyakin
 	 * @version 1.3
 	 * @link http://blog.inspirit.ru/
-	 * 
-	 * 
+	 *
+	 *
 	 * Heavily modified from the original version.  Removed multiple file support.
 	 * Removed optional async data preparation (always async)
 	 * After data is preparted the upload immediately starts.
@@ -45,11 +46,11 @@
 	public class  MultipartURLLoader extends EventDispatcher
 	{
 		public static var BLOCK_SIZE:uint = 64 * 1024;
-		
+
 		private var _loader:URLLoader;
 		private var _request:URLRequest;
 		private var _boundary:String;
-		
+
 		private var _fileName:String;
 		private var _uploadDataFieldName:String;
 		private var _fileData:ByteArray;
@@ -59,13 +60,16 @@
 		private var asyncWriteTimeoutId:Number;
 		private var timeoutTimer:Timer;
 		private var progressTimer:Timer;
-		
+
 		private var _uploadSize:Number;
 		public function get size():Number {
 			return this._uploadSize;
 		}
-		
-		
+
+		private function debug(message:String):void {
+			ExternalCall.Debug('SWFUpload.debug', message);
+		}
+
 		public function MultipartURLLoader(fileData:ByteArray, fileName:String) {
 			_loader = new URLLoader();
 			_fileData = fileData;
@@ -84,7 +88,7 @@
 			this._uploadDataFieldName = uploadDataFieldName;
 			this.constructPostDataAsync();
 		}
-		
+
 		/**
 		 * Stop loader action
 		 */
@@ -94,7 +98,7 @@
 				clearInterval(this.asyncWriteTimeoutId);
 				_loader.close();
 			} catch ( e:Error ) { }
-			
+
 			this.destroy();
 		}
 
@@ -124,7 +128,7 @@
 			}
 			return _boundary;
 		}
-		
+
 		private function doSend():void
 		{
 			trace('doSend');
@@ -136,21 +140,21 @@
 
 			urlRequest.requestHeaders = this._request.requestHeaders.concat();
 			urlRequest.requestHeaders.push(new URLRequestHeader('Content-Type', 'multipart/form-data; boundary=' + getBoundary()));
-			
+
 			this._uploadSize = urlRequest.data.length;
 			this.addListener();
 			dispatchEvent(new Event(Event.OPEN, false, false));
 			try {
 				timeoutTimer.stop();
 			} catch (ex:Error) {
-				
+
 			};
 			try {
 				progressTimer.stop();
 			} catch (ex:Error) {
-				
+
 			};
-			timeoutTimer = new Timer(27000);
+			timeoutTimer = new Timer(300000);
 			progressTimer = new Timer(300);
 			var t:MultipartURLLoader = this;
 			timeoutTimer.addEventListener(TimerEvent.TIMER, function(event:TimerEvent):void {
@@ -183,20 +187,20 @@
 				timeoutTimer.stop();
 				this.destroy();
 			}
-	
+
 		}
-		
+
 		private function constructPostDataAsync():void
 		{
 			trace('constructPostDataAsync');
 			clearInterval(this.asyncWriteTimeoutId);
 			this._data = new ByteArray();
-			this._data.endian = Endian.BIG_ENDIAN;			
+			this._data.endian = Endian.BIG_ENDIAN;
 			this._data = constructVariablesPart(this._data);
 			this._data = getFilePartHeader(this._data, this._fileName);
 
 			this.asyncWriteTimeoutId = setTimeout(this.writeChunkLoop, 10, this._data, this._fileData, 0);
-			
+
 		}
 
 		private function writeChunkLoop(dest:ByteArray, data:ByteArray, p:uint = 0):void
@@ -205,7 +209,7 @@
 			try {
 				var len:uint = Math.min(BLOCK_SIZE, data.length - p);
 				dest.writeBytes(data, p, len);
-				
+
 				if (len < BLOCK_SIZE || p + len >= data.length) {
 					// Finished writing file bytearray
 					dest = LINEBREAK(dest);
@@ -221,7 +225,7 @@
 				this.destroy();
 			}
 		}
-	
+
 		private function closeDataObject(postData:ByteArray):ByteArray
 		{
 			postData = BOUNDARY(postData);
@@ -272,10 +276,10 @@
 				//postData.writeByte( bytes.charCodeAt(i) );
 			//}
 			//postData = LINEBREAK(postData);
-			
+
 			return postData;
 		}
-		
+
 		private function getFilePartHeader(postData:ByteArray, fileName:String):ByteArray
 		{
 			var i:uint;
@@ -287,10 +291,10 @@
 			for ( i = 0; i < bytes.length; i++ ) {
 				postData.writeByte( bytes.charCodeAt(i) );
 			}
-			
+
 			postData.writeUTFBytes(fileName);
 			postData = QUOTATIONMARK(postData);
-			
+
 			postData = LINEBREAK(postData);
 			bytes = 'Content-Type: application/octet-stream';
 			for ( i = 0; i < bytes.length; i++ ) {
@@ -298,7 +302,7 @@
 			}
 			postData = LINEBREAK(postData);
 			postData = LINEBREAK(postData);
-			
+
 			return postData;
 		}
 
@@ -339,12 +343,12 @@
 					try {
 						timeoutTimer.stop();
 					} catch (ex:Error) {
-						
+
 					}
 					try {
 						progressTimer.stop();
 					} catch (ex:Error) {
-						
+
 					}
 					constructPostDataAsync();
 				} else {
@@ -402,7 +406,7 @@
 			p.writeShort(0x2d2d);
 			return p;
 		}
-		
+
 		private function destroy():void {
 			try {
 				this.removeListener();
@@ -411,7 +415,7 @@
 			this._loader = null;
 			this._request = null;
 			this._boundary = null;
-		
+
 			this._fileName = null;
 			this._uploadDataFieldName = null;
 			if (this._fileData !== null) this._fileData.length = 0;
@@ -419,13 +423,13 @@
 			if (this._data !== null) this._data.length = 0;
 			this._data = null;
 			this._httpStatus = undefined;
-		
+
 			try {
 				clearInterval(this.asyncWriteTimeoutId);
 			} catch (ex:Error) { }
-			
+
 			this.asyncWriteTimeoutId = undefined;
 		}
-	
+
 	}
 }

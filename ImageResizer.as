@@ -23,48 +23,36 @@ package
 	//import cmodule.jpegencoder.CLibInit;
 	import EncodeCompleteEvent;
 	import EncodeProgressEvent;
-	import ExternalCall
+	import ExternalCall;
+
 	/*
 	Technique adapted from Kun Janos (http://kun-janos.ro/blog/?p=107)
 	*/
 	public class ImageResizer extends EventDispatcher
 	{
 		private var file:FileItem = null;
-		private var targetWidth:Number = 0;
-		private var targetHeight:Number = 0;
-		private var newWidth:Number = 1;
-		private var newHeight:Number = 1;
+		private var newWidth:Number = 0;
+		private var newHeight:Number = 0;
 		private var encoder:Number = ImageResizer.JPEGENCODER;
 		private var quality:Number = 100;
-		private var allowEnlarging:Boolean = true;
-		private var allowSmaller:Boolean = true;
-		//private var ba:ByteArray;
-		//private var baOut:ByteArray;
+		private var targetWidth:Number = 0;
+		private var targetHeight:Number = 0;
+		private var originSize:Number = 0;
 
 		public static const JPEGENCODER:Number = -1;
 		public static const PNGENCODE:Number = -2;
-
-		//private static var cLibEncoder:Object = null;
-
-		public function ImageResizer(file:FileItem, targetWidth:Number, targetHeight:Number, encoder:Number, quality:Number = 100, allowEnlarging:Boolean = true, allowSmaller:Boolean = true) {
+		public function ImageResizer(file:FileItem, targetWidth:Number = 0, targetHeight:Number = 0, quality:Number = 100) {
 			this.file = file;
-			this.targetHeight = targetHeight;
-			this.targetWidth = targetWidth;
-			this.debug('set encode to' + encoder);
-			this.encoder = encoder;
+			this.targetHeight = targetWidth;
+			this.targetWidth  = targetWidth;
+			this.debug('width: ' + targetWidth);
 			this.quality = quality;
-			this.allowEnlarging = allowEnlarging;
-			this.allowSmaller = allowSmaller;
-
-			if (this.encoder != ImageResizer.JPEGENCODER && this.encoder != ImageResizer.PNGENCODE) {
-				this.encoder = ImageResizer.JPEGENCODER;
-			}
-			if (this.quality < 0 || this.quality > 100) {
-				this.quality = 100;
+			if (this.quality < 0 || this.quality > 90) {
+				this.quality = 90;
 			}
 		}
 		private function debug(message:String):void {
-			ExternalCall.Debug('SWFUpload.debug', 'ImageResizer::' + message);
+			ExternalCall.Debug('SWFUpload.debug', message);
 		}
 
 		public function ResizeImage():void {
@@ -99,6 +87,9 @@ package
 				// Load the image data, resizing takes place in the event handler
 				loader.contentLoaderInfo.addEventListener(Event.COMPLETE, this.loader_Complete);
 				loader.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, this.loader_Error);
+
+				this.originSize = FileReference(event.target).data.length;
+				this.debug('origin size:'+this.originSize);
 				loader.loadBytes(FileReference(event.target).data);
 			} catch (ex:Error) {
 				loader.removeEventListener(Event.COMPLETE, this.loader_Complete);
@@ -117,9 +108,7 @@ package
 
 		private function loader_Complete(event:Event):void {
 			try {
-				this.debug('loader_complete');
 				var bytes:ByteArray;
-
 				event.target.removeEventListener(Event.COMPLETE, this.loader_Complete);
 				event.target.removeEventListener(IOErrorEvent.IO_ERROR, this.loader_Error);
 
@@ -128,30 +117,33 @@ package
 				var contentType:String = loader.contentLoaderInfo.contentType;
 				this.setEncoder(contentType);
 
-				// Calculate the new image size
-				var targetRatio:Number = this.targetWidth / this.targetHeight;
-				var imgRatio:Number = loader.width / loader.height;
-				this.newHeight = (targetRatio > imgRatio) ? this.targetHeight : Math.min(this.targetWidth / imgRatio, this.targetHeight);
-				this.newWidth = (targetRatio > imgRatio) ? Math.min(imgRatio * this.targetHeight, this.targetWidth) : this.targetWidth;
-
 				// Get the image data
 				var bmp:BitmapData = Bitmap(loader.content).bitmapData;
 
 				loader.unload();
 				loader = null;
 
-				// If enlarging is not allowed but the new width causes enlarging then adjust the dimensions
-				if (!this.allowEnlarging && (this.newWidth > bmp.width || this.newHeight > bmp.height)) {
+				var ratio:Number = bmp.width / bmp.height;
+
+				if (this.targetWidth || this.targetHeight) {
+					if (bmp.width <= bmp.height && bmp.width > this.targetWidth) {
+						this.newWidth = this.targetWidth;
+						this.newHeight = this.targetWidth / ratio;
+					} else if (bmp.height <= bmp.width && bmp.height > this.targetHeight) {
+						this.newHeight = this.targetHeight;
+						this.newWidth = this.targetHeight * ratio;
+					} else {
+						this.newWidth = bmp.width;
+						this.newHeight = bmp.height;
+					}
+				} else {
 					this.newWidth = bmp.width;
 					this.newHeight = bmp.height;
 				}
+				this.debug('targetWidth: '+this.targetWidth + ', targetHeight' + this.targetHeight);
+				this.debug('newWidth' + this.newWidth + ', newHeight' + this.newHeight);
 
-				if (!this.allowEnlarging && !this.allowSmaller) {
-					this.newHeight = bmp.height;
-					this.newWidth  = bmp.width;
-				}
-
-				if (this.newWidth < bmp.width || this.newHeight < bmp.height || this.IsTranscoding(contentType)) {
+				if (this.IsTranscoding(contentType)) {
 					// Apply the resizing
 					var matrix:Matrix = new Matrix();
 					matrix.identity();
@@ -209,22 +201,14 @@ package
 			dispatchEvent(e);
 		}
 
-		/*
-		private function compressFinished(out:ByteArray):void {
-			this.baOut.position = 0;
-			this.ba.clear();
-
-			this.EncodeCompleteHandler(new EncodeCompleteEvent(baOut));
-		}
-		*/
-
 		private function EncodeCompleteHandler(e:EncodeCompleteEvent):void {
+			this.debug('encoded size:' + e.data.length);
+			this.debug('reduced by:' + ((1 - e.data.length/this.originSize)*100)  + '%');
 			dispatchEvent(new ImageResizerEvent(ImageResizerEvent.COMPLETE, e.data, this.encoder));
 		}
 
 		private function eventProgress(e:EncodeProgressEvent):void {
 			dispatchEvent(new ProgressEvent(ProgressEvent.PROGRESS, false, false, e.doneLines, e.totalLines));
-			// (e.bytesLoaded / e.bytesTotal);
 		}
 
 	}

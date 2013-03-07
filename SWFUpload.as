@@ -179,8 +179,6 @@ package {
 			var self:SWFUpload = this;
 			Security.allowDomain("*");	// Allow uploading to any domain
 			Security.allowInsecureDomain("*");	// Allow uploading from HTTP to HTTPS and HTTPS to HTTP
-			Security.loadPolicyFile("http://image.ganji.com/crossdomain.xml");
-			Security.loadPolicyFile("http://image.ganjistatic1.com/crossdomain.xml");
 
 			// Keep Flash Player busy so it doesn't show the "flash script is running slowly" error
 			var counter:Number = 0;
@@ -426,7 +424,7 @@ package {
 
 			this.Debug("SWFUpload Init Complete");
 			this.PrintDebugInfo();
-			this.Debug("flashReady");
+			this.Debug("flashReady2");
 			this.inited = true;
 			if (this.inited && this.btnImageLoaded) {
 				if (!this.hasCalledFlashReady) {
@@ -1327,8 +1325,8 @@ package {
 			File processing and handling functions
 		*************************************************************** */
 
-		private function StartUpload(file_id:String = '', guid:String = '', resizeSettings:Object = null):void {
-			this.Debug('start upload' + guid);
+		private function StartUpload(file_id:String = '', resizeSettings:Object = null):void {
+			this.Debug('start upload');
 			var current_file_item:FileItem = null;
 
 			var file_index:Number = this.FindIndexInFileQueue(file_id);
@@ -1340,7 +1338,6 @@ package {
 				this.Debug("Event: uploadError : File ID not found in queue: " + file_id);
 				ExternalCall.UploadError(this.uploadError_Callback, this.ERROR_CODE_SPECIFIED_FILE_ID_NOT_FOUND, null, "File ID not found in the queue.");
 			}
-			current_file_item.AddParam('_guid', guid);
 			this._StartUpload(current_file_item, resizeSettings);
 		}
 
@@ -1399,8 +1396,8 @@ package {
 				current_file_item.eventFuncs.PrepareResizedProgress = function (event:ProgressEvent):void {
 					t.PrepareResizedProgress(event, current_file_item);
 				};
-
-				var resizer:ImageResizer = new ImageResizer(current_file_item, resizeSettings["width"], resizeSettings["height"], resizeSettings["encoding"], resizeSettings["quality"], resizeSettings["allowEnlarging"], resizeSettings["allowSmaller"]);
+				ExternalCall.Debug('SWFUpload.debug', 'resizeSettings["width"]: '+resizeSettings["width"])
+				var resizer:ImageResizer = new ImageResizer(current_file_item, resizeSettings["width"], resizeSettings["height"], resizeSettings["quality"]);
 				resizer.addEventListener(ImageResizerEvent.COMPLETE, current_file_item.eventFuncs.PrepareResizedImageCompleteHandler);
 				resizer.addEventListener(ErrorEvent.ERROR, current_file_item.eventFuncs.PrepareResizedImageErrorHandler);
 				resizer.addEventListener(ProgressEvent.PROGRESS, current_file_item.eventFuncs.PrepareResizedProgress);
@@ -1434,6 +1431,7 @@ package {
 				var newFileName:String = current_file_item.file_reference.name.lastIndexOf(".") > 1 ?
 					(current_file_item.file_reference.name.substring(0, current_file_item.file_reference.name.lastIndexOf(".")) + extension) :
 					(current_file_item.file_reference.name + extension);
+
 				current_file_item.uploader = new MultipartURLLoader(event.data, newFileName);
 				this.Debug('PrepareResizedImageCompleteHandler(): I dont upload automatic');
 				this.Debug('PrepareResizedImageCompleteHandler(): file_index:' + this.FindIndexInFileQueue(current_file_item.id));
