@@ -1366,7 +1366,13 @@ package {
 					current_file_item.upload_type = FileItem.UPLOAD_TYPE_NORMAL;
 				}
 
-				if (resizeSettings != null && current_file_item.file_reference.size < 10240000 && current_file_item.file_reference.size > 300000) {
+                var fileType:String = current_file_item.file_reference.type;
+                var isSupportResize:Boolean = false;
+                if (fileType === '.jpg' || fileType === '.jpeg' || fileType === '.png') {
+                    isSupportResize = true;
+                }
+
+				if (isSupportResize && resizeSettings != null && current_file_item.file_reference.size < 10240000 && current_file_item.file_reference.size > 300000) {
 					this.Debug("StartUpload(): Uploading Type: Resized Image.");
 					current_file_item.file_status = FileItem.FILE_STATUS_IN_RESIZE;
 					this.PrepareResizedImage(resizeSettings, current_file_item);
