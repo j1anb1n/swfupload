@@ -1,5 +1,4 @@
-﻿
-package
+﻿package
 {
 	import EncodeCompleteEvent;
 	import EncodeProgressEvent;
@@ -706,17 +705,8 @@ package
 
 	    private function loopEncode():void
 	    {
-	    	//async
-	    	if(loopTime>runTime)
-	    	{
-		    	loopTime=0;
-		    	setTimeout(loopEncode, haltTime);
-		    	return;
-	    	}
-
 	    	if (ypos<height)
 			{
-				var time:int=getTimer();
 
 				for (var xpos:int=0; xpos<width; xpos+=8)
 				{
@@ -727,11 +717,10 @@ package
 				}
 
 				//progress
-	            dispatchEvent(new EncodeProgressEvent(ypos,height));
-
+				dispatchEvent(new EncodeProgressEvent(ypos,height));
 	            //next line
 	            ypos+=8;
-	            loopTime+=getTimer()-time;
+
 	            loopEncode();
 			}
 			else
