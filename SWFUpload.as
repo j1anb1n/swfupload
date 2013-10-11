@@ -1366,8 +1366,9 @@ package {
 					current_file_item.upload_type = FileItem.UPLOAD_TYPE_NORMAL;
 				}
 
-                var fileType:String = current_file_item.file_reference.type;
+                var fileType:String = current_file_item.file_reference.type.toLowerCase();
                 var isSupportResize:Boolean = false;
+
                 if (fileType === '.jpg' || fileType === '.jpeg' || fileType === '.png') {
                     isSupportResize = true;
                 }
